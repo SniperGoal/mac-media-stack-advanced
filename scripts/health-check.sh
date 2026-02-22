@@ -133,8 +133,8 @@ if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
         echo ""
         echo "Jellystat:"
         if [[ "$jellystat_state" == "running" ]]; then
-            jellystat_http=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://localhost:3000" 2>/dev/null)
-            if [[ "$jellystat_http" =~ ^[23][0-9][0-9]$ ]]; then
+            jellystat_http=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://localhost:3000/api/getConfiguration" 2>/dev/null)
+            if [[ "$jellystat_http" =~ ^(200|401|403)$ ]]; then
                 echo -e "  ${GREEN}OK${NC}  Jellystat"
                 ((PASS++))
             else

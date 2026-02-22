@@ -287,6 +287,8 @@ if [[ "$MEDIA_SERVER" == "plex" ]]; then
     echo "  2. Configure Tdarr at http://localhost:8265"
 else
     echo "  1. Configure Tdarr at http://localhost:8265"
+    echo "  2. Open Jellystat at http://localhost:3000 and connect to http://jellyfin:8096"
+    echo "  3. If prompted, restart Jellyfin to finish Intro Skipper/TMDb Box Sets plugin activation"
 fi
 echo ""
 echo "Rollback (if needed):"

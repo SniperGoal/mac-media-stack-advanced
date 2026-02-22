@@ -248,7 +248,7 @@ services:
     restart: unless-stopped
 
   jellystat-db:
-    image: postgres:18.1
+    image: postgres@sha256:1090bc3a8ccfb0b55f78a494d76f8d603434f7e4553543d6e807bc7bd6bbd17f
     container_name: jellystat-db
     profiles: ["jellyfin"]
     environment:
@@ -265,7 +265,7 @@ services:
     restart: unless-stopped
 
   jellystat:
-    image: cyfershepard/jellystat:latest
+    image: cyfershepard/jellystat@sha256:c8c451704ba7985340142cd047e2364cabaf41b613669b6c5340688ed217f82a
     container_name: jellystat
     profiles: ["jellyfin"]
     depends_on:

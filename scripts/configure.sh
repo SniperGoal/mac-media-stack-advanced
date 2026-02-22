@@ -440,6 +440,52 @@ if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
             # Fetch plugin catalog
             PLUGIN_CATALOG=$(curl -fsS "http://localhost:8096/Packages" -H "X-Emby-Token: $JF_API_KEY" 2>/dev/null || true)
 
+            url_encode() {
+                local raw="$1"
+                if command -v python3 >/dev/null 2>&1; then
+                    python3 - "$raw" <<'PY'
+import sys, urllib.parse
+print(urllib.parse.quote(sys.argv[1], safe=""))
+PY
+                else
+                    # Best-effort fallback for environments without python3
+                    printf '%s\n' "${raw// /%20}"
+                fi
+            }
+
+            resolve_jf_plugin() {
+                local requested="$1"
+                if ! command -v python3 >/dev/null 2>&1; then
+                    return 1
+                fi
+
+                printf '%s' "$PLUGIN_CATALOG" | python3 - "$requested" <<'PY'
+import json, sys
+
+wanted = sys.argv[1].strip().lower()
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+
+items = payload.get("Items", payload) if isinstance(payload, dict) else payload
+if not isinstance(items, list):
+    sys.exit(1)
+
+for item in items:
+    if not isinstance(item, dict):
+        continue
+    name = str(item.get("name", item.get("Name", ""))).strip()
+    guid = str(item.get("guid", item.get("Guid", ""))).strip()
+    if name.lower() == wanted:
+        print(name)
+        print(guid)
+        sys.exit(0)
+
+sys.exit(1)
+PY
+            }
+
             install_jf_plugin() {
                 local plugin_name="$1"
                 if [[ -z "$PLUGIN_CATALOG" ]]; then
@@ -447,26 +493,32 @@ if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
                     return 0
                 fi
 
-                # Extract the plugin GUID from catalog
-                local plugin_guid
-                plugin_guid=$(echo "$PLUGIN_CATALOG" | grep -o "\"name\":\"$plugin_name\"[^}]*\"guid\":\"[^\"]*\"" | grep -o '"guid":"[^"]*"' | cut -d'"' -f4 || true)
+                local plugin_info plugin_guid resolved_name
+                plugin_info="$(resolve_jf_plugin "$plugin_name" || true)"
+                resolved_name="$(echo "$plugin_info" | sed -n '1p')"
+                plugin_guid="$(echo "$plugin_info" | sed -n '2p')"
 
-                if [[ -z "$plugin_guid" ]]; then
+                if [[ -z "$resolved_name" ]]; then
                     warn "$plugin_name: not found in plugin catalog"
                     warn "  Install manually: Administration > Plugins > Catalog > $plugin_name"
                     return 0
                 fi
 
-                # Get latest version
-                local install_result
+                local install_result encoded_name install_url
+                encoded_name="$(url_encode "$resolved_name")"
+                install_url="http://localhost:8096/Packages/Installed/$encoded_name"
+                if [[ -n "$plugin_guid" ]]; then
+                    install_url="${install_url}?assemblyGuid=$plugin_guid"
+                fi
+
                 install_result=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-                    "http://localhost:8096/Packages/Installed/$plugin_name" \
+                    "$install_url" \
                     -H "X-Emby-Token: $JF_API_KEY" 2>/dev/null || echo "000")
 
                 if [[ "$install_result" =~ ^2 ]]; then
-                    log "$plugin_name plugin installed"
+                    log "$resolved_name plugin installed"
                 else
-                    warn "$plugin_name: install returned HTTP $install_result"
+                    warn "$resolved_name: install returned HTTP $install_result"
                     warn "  Install manually: Administration > Plugins > Catalog > $plugin_name"
                 fi
             }

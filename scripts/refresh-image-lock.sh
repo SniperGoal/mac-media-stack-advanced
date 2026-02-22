@@ -10,7 +10,7 @@ LOCK_FILE="$SCRIPT_DIR/IMAGE_LOCK.md"
 ENV_FILE="$SCRIPT_DIR/.env"
 
 PROFILES=(autoupdate music jellyfin)
-OPTIONAL_SERVICES=(watchtower jellyfin)
+OPTIONAL_SERVICES=(watchtower jellyfin jellystat jellystat-db)
 MUSIC_SERVICES=(lidarr tidarr)
 
 for cmd in docker awk sed mktemp; do

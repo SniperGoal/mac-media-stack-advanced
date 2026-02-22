@@ -82,9 +82,11 @@ bash scripts/health-check.sh
 
 After either upgrade path, confirm:
 
-1. `~/Media/config/kometa/config.yml` has `PLEX_TOKEN` + TMDB key
-2. Tdarr libraries/plugins are configured at `http://localhost:8265`
-3. `bash scripts/health-check.sh` reports clean results
+1. Tdarr libraries/plugins are configured at `http://localhost:8265`
+2. `bash scripts/health-check.sh` reports clean results
+3. If using Plex: `~/Media/config/kometa/config.yml` has `PLEX_TOKEN` + TMDB key
+4. If using Jellyfin: open Jellystat at `http://localhost:3000` and connect it to `http://jellyfin:8096`
+5. If using Jellyfin: restart Jellyfin once after plugin install to activate Intro Skipper/TMDb Box Sets
 
 ## Rollback
 
