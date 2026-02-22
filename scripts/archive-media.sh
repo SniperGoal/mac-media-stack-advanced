@@ -61,7 +61,7 @@ Options:
   --archive PATH          Archive destination root (required)
   --log PATH              Log file path (default: <source>/logs/archive-media.log)
   --exceptions PATH       Exceptions file (default: <source>/config/archive-exceptions.txt)
-  --only-watched          Only archive content marked as watched in Plex
+  --only-watched          Only archive content marked as watched in Plex or Jellyfin
   --plex-url URL          Plex server URL (default: http://localhost:32400)
   --plex-token TOKEN      Plex auth token (auto-detected from Kometa config if not set)
   --plex-movies-section N Plex movies library section ID (default: 1)
@@ -347,7 +347,8 @@ load_jellyfin_api_key() {
 }
 
 get_jellyfin_user_id() {
-    curl -fsS -H "X-Emby-Token: $JELLYFIN_API_KEY" "$JELLYFIN_URL/Users" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['Id'])" 2>/dev/null
+    curl -fsS -H "X-Emby-Token: $JELLYFIN_API_KEY" "$JELLYFIN_URL/Users" 2>/dev/null \
+        | python3 -c "import sys,json; users=json.load(sys.stdin); print(users[0]['Id'] if users else '')" 2>/dev/null
 }
 
 build_watched_file_movies_jellyfin() {
@@ -355,6 +356,10 @@ build_watched_file_movies_jellyfin() {
     local out_file="$2"
     local user_id
     user_id="$(get_jellyfin_user_id)"
+    if [[ -z "$user_id" ]]; then
+        echo -e "${RED}ERR${NC} Failed to get Jellyfin user ID from $JELLYFIN_URL/Users" >&2
+        exit 1
+    fi
 
     python3 - "$JELLYFIN_URL" "$JELLYFIN_API_KEY" "$user_id" "$src_root" <<'PY' > "$out_file"
 import json, os, sys, urllib.request
@@ -393,6 +398,10 @@ build_watched_file_tv_jellyfin() {
     local out_file="$2"
     local user_id
     user_id="$(get_jellyfin_user_id)"
+    if [[ -z "$user_id" ]]; then
+        echo -e "${RED}ERR${NC} Failed to get Jellyfin user ID from $JELLYFIN_URL/Users" >&2
+        exit 1
+    fi
 
     python3 - "$JELLYFIN_URL" "$JELLYFIN_API_KEY" "$user_id" "$src_root" <<'PY' > "$out_file"
 import json, os, sys, urllib.request
@@ -405,7 +414,7 @@ total_ep = {}
 watched_ep = {}
 
 while True:
-    url = f"{base_url.rstrip('/')}/Users/{user_id}/Items?IncludeItemTypes=Episode&Recursive=true&StartIndex={start}&Limit={limit}&Fields=Path"
+    url = f"{base_url.rstrip('/')}/Users/{user_id}/Items?IncludeItemTypes=Episode&Recursive=true&StartIndex={start}&Limit={limit}&Fields=Path,UserData"
     req = urllib.request.Request(url, headers={"X-Emby-Token": api_key})
     with urllib.request.urlopen(req, timeout=60) as resp:
         data = json.load(resp)

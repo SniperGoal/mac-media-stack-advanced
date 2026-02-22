@@ -364,11 +364,11 @@ if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     if [[ "$NON_INTERACTIVE" == true ]]; then
         warn "Non-interactive mode: skipping Seerr Jellyfin sign-in prompt."
         warn "Manually open http://localhost:5055 and select 'Use your Jellyfin account'."
-        warn "Jellyfin URL: http://host.docker.internal:8096"
+        warn "Jellyfin URL: http://jellyfin:8096"
     else
         echo -e "  ${YELLOW}ACTION NEEDED:${NC} Open ${CYAN}http://localhost:5055${NC} in your browser"
         echo "  Select \"Use your Jellyfin account\" and enter:"
-        echo "    Jellyfin URL: http://host.docker.internal:8096"
+        echo "    Jellyfin URL: http://jellyfin:8096"
         echo ""
         read -p "  Press Enter after you've signed in to Seerr..."
         echo ""
