@@ -152,6 +152,7 @@ All download traffic routes through ProtonVPN (with optional NordVPN failover). 
 | `scripts/vpn-failover-watch.sh` | Automatic VPN failover daemon |
 | `scripts/run-kometa.sh` | Trigger Kometa metadata run |
 | `scripts/setup-music.sh` | Creates music directories and Tidarr config (optional) |
+| `scripts/archive-media.sh` | Move old/watched media to an external archive drive |
 | `scripts/refresh-image-lock.sh` | Refreshes pinned image digests and regenerates IMAGE_LOCK.md |
 
 ## Config Templates
@@ -226,6 +227,25 @@ docker compose --profile music stop lidarr tidarr
 # Add to your shell profile:
 export COMPOSE_PROFILES=music
 ```
+
+## Media Archiving
+
+If you're running out of space on your primary drive, the archive script moves old or watched media to an external drive. Dry-run by default so you can preview what would be moved before committing.
+
+```bash
+# Preview candidates (nothing gets moved)
+bash scripts/archive-media.sh --archive /Volumes/External/Media-Archive
+
+# Archive movies older than 6 months that are 8GB+
+bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archive --type movies
+
+# Only archive stuff you've already watched (uses Plex watch state)
+bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archive --only-watched
+```
+
+**Protecting favorites:** Create a file at `~/Media/config/archive-exceptions.txt` with one title per line. Anything listed won't be archived regardless of age or size. See `configs/archive-exceptions.txt.example` for the format.
+
+The script verifies file counts after copying and only deletes the source if the counts match. If verification fails, your original files are untouched.
 
 ## Companion Tools
 
