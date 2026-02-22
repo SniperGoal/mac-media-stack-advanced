@@ -77,6 +77,7 @@ Then open Tidarr at `http://localhost:8484` to authenticate with your Tidal acco
 | Log prune | Daily | Removes log files older than 30 days |
 | Franchise sort | After Kometa | Sorts franchise collection movies by release date in Plex |
 | VPN failover | Every 2 min (optional) | Auto-switches between ProtonVPN and NordVPN on sustained failure |
+| Watchtower | Weekly (optional) | Auto-pulls latest container images and recreates updated services |
 
 ## One-Command Install
 
@@ -107,6 +108,8 @@ bash scripts/configure.sh
 bash scripts/install-launchd-jobs.sh
 ```
 
+The `watchtower` line above enables automatic container image updates (checks weekly). It's optional but recommended so your services stay patched without manual pulls.
+
 ## Full Setup Guide
 
 See [SETUP.md](SETUP.md) for the complete walkthrough.
@@ -136,7 +139,7 @@ Optional music:
                    Tidarr (Tidal FLAC downloads) ----^
 ```
 
-All download traffic routes through ProtonVPN (with optional NordVPN failover). Everything else uses your normal connection. All services auto-start on boot and self-heal if they go down.
+All download traffic routes through ProtonVPN (with optional NordVPN failover). Gluetun's built-in kill switch blocks traffic if the VPN drops, so your real IP is never exposed through the tunnel. Everything else uses your normal connection. All services auto-start on boot and self-heal if they go down.
 
 ## Scripts
 

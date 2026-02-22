@@ -98,6 +98,39 @@ docker compose --profile autoupdate up -d watchtower
 
 ---
 
+## Verify Your VPN Kill Switch
+
+Once the stack is running, confirm your real IP is never exposed through the VPN tunnel:
+
+```bash
+# 1. Check the VPN's IP (should be your VPN provider, not your ISP)
+docker exec gluetun sh -c 'wget -qO- https://ipinfo.io/ip'
+
+# 2. Check your real IP (run outside Docker)
+curl -s https://ipinfo.io/ip
+
+# 3. Confirm they're different
+```
+
+To test the kill switch (traffic should be blocked when the VPN drops):
+
+```bash
+# Kill the VPN process inside the container
+docker exec gluetun sh -c 'killall -SIGUSR1 openvpn'
+
+# Try reaching the internet from inside the VPN namespace — should fail/timeout
+docker exec gluetun sh -c 'wget -qO- --timeout=5 https://ipinfo.io/ip'
+
+# Restore the VPN
+docker restart gluetun
+```
+
+If the second `wget` returns an IP instead of timing out, your kill switch isn't working. Check your Gluetun configuration.
+
+> **macOS note:** On macOS, Docker runs inside a Linux VM (OrbStack or Docker Desktop). The kill switch blocks traffic at the container/VM level, not at the macOS network layer. This means containers routed through Gluetun are protected, but apps running directly on macOS are not affected. This is normal and expected.
+
+---
+
 ## Step 5: Auto-Configure Services
 
 ```bash
