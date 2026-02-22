@@ -9,3 +9,5 @@ state/
 backups/
 tdarr-transcode-cache/
 Music/
+__pycache__/
+*.py[cod]
