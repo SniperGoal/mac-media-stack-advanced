@@ -1,6 +1,7 @@
 #!/bin/bash
 # Media Stack Setup Helper (Advanced)
 # Creates all required folders and prepares config files.
+# Usage: bash scripts/setup.sh [--help]
 
 set -e
 
@@ -9,6 +10,30 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+usage() {
+    cat <<EOF
+Usage: bash scripts/setup.sh
+
+Creates Media folder structure, generates .env, and copies config templates.
+
+Options:
+  --help    Show this help message
+EOF
+}
+
+case "${1:-}" in
+    "" ) ;;
+    --help|-h)
+        usage
+        exit 0
+        ;;
+    *)
+        echo "Unknown option: $1"
+        usage
+        exit 1
+        ;;
+esac
 
 echo ""
 echo "=============================="
