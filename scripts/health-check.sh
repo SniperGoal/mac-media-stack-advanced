@@ -13,7 +13,7 @@ FAIL=0
 check_service() {
     local name="$1" url="$2"
     status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$url" 2>/dev/null)
-    if [[ "$status" =~ ^(200|301|302)$ ]]; then
+    if [[ "$status" =~ ^[23][0-9][0-9]$ ]]; then
         echo -e "  ${GREEN}OK${NC}  $name"
         ((PASS++))
     else

@@ -44,12 +44,18 @@ def parse_args():
     global MUSIC_ROOT, DRY_RUN
     args = sys.argv[1:]
     i = 0
+    def require_arg(flag: str) -> str:
+        nonlocal i
+        if i + 1 >= len(args) or args[i + 1].startswith("--"):
+            print(f"Missing value for {flag}")
+            sys.exit(1)
+        return args[i + 1]
     while i < len(args):
         if args[i] == "--apply":
             DRY_RUN = False
             i += 1
-        elif args[i] == "--path" and i + 1 < len(args):
-            MUSIC_ROOT = args[i + 1]
+        elif args[i] == "--path":
+            MUSIC_ROOT = require_arg("--path")
             i += 2
         elif args[i] in ("-h", "--help"):
             print(__doc__.strip())

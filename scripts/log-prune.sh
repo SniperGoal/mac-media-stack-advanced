@@ -18,10 +18,20 @@ usage() {
     exit 0
 }
 
+require_arg() {
+    local flag="$1"
+    local value="${2:-}"
+    if [[ -z "$value" || "$value" == --* ]]; then
+        echo "Missing value for $flag" >&2
+        exit 1
+    fi
+    echo "$value"
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --path) MEDIA_DIR="$2"; shift 2 ;;
-        --days) RETENTION_DAYS="$2"; shift 2 ;;
+        --path) MEDIA_DIR="$(require_arg --path "${2:-}")"; shift 2 ;;
+        --days) RETENTION_DAYS="$(require_arg --days "${2:-}")"; shift 2 ;;
         -h|--help) usage ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac

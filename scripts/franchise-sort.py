@@ -12,6 +12,7 @@ Usage:
   python3 franchise-sort.py                                    # uses env vars
   PLEX_URL=http://localhost:32400 PLEX_TOKEN=xxx python3 franchise-sort.py
   python3 franchise-sort.py --url http://localhost:32400 --token xxx
+  python3 franchise-sort.py --path ~/Media/logs               # custom log dir
   python3 franchise-sort.py --section 2                        # TV library
   python3 franchise-sort.py --dry-run                          # preview only
 """
@@ -34,18 +35,24 @@ def parse_args():
     global PLEX_URL, PLEX_TOKEN, SECTION_ID, LOG_DIR, DRY_RUN
     args = sys.argv[1:]
     i = 0
+    def require_arg(flag: str) -> str:
+        nonlocal i
+        if i + 1 >= len(args) or args[i + 1].startswith("--"):
+            print(f"Missing value for {flag}")
+            sys.exit(1)
+        return args[i + 1]
     while i < len(args):
-        if args[i] == "--url" and i + 1 < len(args):
-            PLEX_URL = args[i + 1]
+        if args[i] == "--url":
+            PLEX_URL = require_arg("--url")
             i += 2
-        elif args[i] == "--token" and i + 1 < len(args):
-            PLEX_TOKEN = args[i + 1]
+        elif args[i] == "--token":
+            PLEX_TOKEN = require_arg("--token")
             i += 2
-        elif args[i] == "--section" and i + 1 < len(args):
-            SECTION_ID = args[i + 1]
+        elif args[i] == "--section":
+            SECTION_ID = require_arg("--section")
             i += 2
-        elif args[i] == "--log-dir" and i + 1 < len(args):
-            LOG_DIR = args[i + 1]
+        elif args[i] in ("--log-dir", "--path"):
+            LOG_DIR = require_arg(args[i])
             i += 2
         elif args[i] == "--dry-run":
             DRY_RUN = True
