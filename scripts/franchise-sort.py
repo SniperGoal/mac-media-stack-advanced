@@ -104,7 +104,7 @@ log = logging.getLogger("franchise-sort")
 
 def plex_get(path):
     url = f"{PLEX_URL}{path}?X-Plex-Token={PLEX_TOKEN}"
-    resp = urllib.request.urlopen(url)
+    resp = urllib.request.urlopen(url, timeout=30)
     return ET.parse(resp).getroot()
 
 
@@ -112,7 +112,7 @@ def plex_put(path, params):
     params["X-Plex-Token"] = PLEX_TOKEN
     url = f"{PLEX_URL}{path}?{urllib.parse.urlencode(params)}"
     req = urllib.request.Request(url, method="PUT")
-    return urllib.request.urlopen(req)
+    return urllib.request.urlopen(req, timeout=30)
 
 
 def get_collections():

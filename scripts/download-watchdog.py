@@ -168,6 +168,10 @@ def main():
         log("[ERROR] No API keys found")
         return 1
 
+    if not QBIT_PASSWORD:
+        log("[ERROR] QBIT_PASSWORD is not set. Check your environment or credentials file.")
+        return 1
+
     try:
         qbit = make_qbit_opener()
     except Exception as exc:

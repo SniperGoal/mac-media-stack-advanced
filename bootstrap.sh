@@ -206,8 +206,17 @@ if grep -q "your_wireguard_private_key_here" .env 2>/dev/null; then
     else
         echo -e "${CYAN}VPN Configuration${NC}"
         echo ""
-        read -s -p "  WireGuard Private Key: " vpn_key
-        echo ""
+
+        # Loop until we get a non-empty private key
+        vpn_key=""
+        while [[ -z "$vpn_key" ]]; do
+            read -s -p "  WireGuard Private Key: " vpn_key
+            echo ""
+            if [[ -z "$vpn_key" ]]; then
+                echo -e "  ${RED}Private key cannot be empty. Please enter a valid key.${NC}"
+            fi
+        done
+
         read -p "  WireGuard Address (e.g. 10.2.0.2/32): " vpn_addr
 
         if [[ -n "$vpn_key" && -n "$vpn_addr" ]]; then
@@ -235,7 +244,15 @@ echo ""
 # Start stack
 echo -e "${CYAN}Starting media stack (first run downloads ~3-5 GB)...${NC}"
 echo ""
-docker compose up -d
+if ! docker compose up -d; then
+    echo ""
+    echo -e "${RED}Failed to start the stack.${NC} Check the error output above."
+    echo "Common issues:"
+    echo "  - Missing or invalid VPN credentials in .env"
+    echo "  - Conflicting port bindings (close other apps using ports 8080, 9696, etc.)"
+    echo "  - Insufficient disk space"
+    exit 1
+fi
 
 echo ""
 echo "Waiting for core services..."

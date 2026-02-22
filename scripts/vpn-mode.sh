@@ -30,6 +30,11 @@ case "${1:-status}" in
             echo "Missing .env.nord (copy from .env.nord.example)"
             exit 1
         fi
+        # Validate .env.nord doesn't contain placeholder values
+        if grep -q "your_wireguard_private_key_here\|your_wireguard_address_here" "$SCRIPT_DIR/.env.nord"; then
+            echo "ERROR: .env.nord contains placeholder values. Add your real NordVPN WireGuard credentials."
+            exit 1
+        fi
         "$DOCKER_BIN" compose -f "$COMPOSE_FILE" -f "$NORD_OVERRIDE" up -d gluetun qbittorrent
         status
         ;;

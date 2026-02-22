@@ -17,7 +17,10 @@ log() { echo "$(timestamp) $1" >> "$LOG"; }
 
 # Trim log
 if [[ -f "$LOG" ]] && [[ $(wc -l < "$LOG") -gt 500 ]]; then
-    tail -500 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+    tmp=$(mktemp)
+    trap "rm -f '$tmp'" EXIT
+    tail -n 1000 "$LOG" > "$tmp" && mv "$tmp" "$LOG"
+    trap - EXIT
 fi
 
 log "--- Health check started ---"

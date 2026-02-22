@@ -83,6 +83,19 @@ Then open Tidarr at `http://localhost:8484` to authenticate with your Tidal acco
 Franchise sorting is kept manual by default because it requires your Plex token:
 `PLEX_TOKEN=... python3 scripts/franchise-sort.py`
 
+### Download Watchdog Configuration
+
+The download watchdog reads qBittorrent credentials and behavior settings from environment variables or automatically detects them from your config files. Optional environment variables:
+
+- `QBIT_USERNAME` (default: `admin`)
+- `QBIT_PASSWORD` (auto-detected from qBittorrent config if not set)
+- `WATCHDOG_STALL_SECONDS` (default: `1800` — how long a torrent must be stalled before auto-swap)
+- `WATCHDOG_SLOW_SECONDS` (default: `1200` — how long a torrent must be slow before auto-swap)
+- `WATCHDOG_MIN_SPEED_BPS` (default: `307200` — 300 KB/s minimum speed threshold)
+- `WATCHDOG_MAX_SWAP_PROGRESS` (default: `0.25` — never swap torrents past 25% complete)
+
+Set these in `.env` or your shell environment if you need to customize watchdog behavior.
+
 ## One-Command Install
 
 Requires OrbStack (or Docker Desktop) and Plex already installed. Handles everything else.

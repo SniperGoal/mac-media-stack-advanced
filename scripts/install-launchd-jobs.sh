@@ -104,8 +104,6 @@ install_plist "download-watchdog" 900 "$SCRIPT_DIR/download-watchdog.py" "false"
 
 # Kometa one-shot (every 4 hours = 14400s)
 install_plist "kometa" 14400 "$SCRIPT_DIR/run-kometa.sh"
-# Log prune (every 24 hours)
-install_plist "log-prune" 86400 "$SCRIPT_DIR/log-prune.sh"
 
 echo ""
 echo -e "${YELLOW}Optional:${NC} VPN failover (requires NordVPN as backup)"

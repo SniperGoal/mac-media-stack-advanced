@@ -48,7 +48,7 @@ if [[ ! -f "$SCRIPT_DIR/.env" ]]; then
 fi
 source "$SCRIPT_DIR/.env"
 
-QB_PASSWORD="media$(date +%s | shasum | head -c 8)"
+QB_PASSWORD="media$(openssl rand -hex 12)"
 CREDS_FILE="$MEDIA_DIR/state/first-run-credentials.txt"
 
 log() { echo -e "  ${GREEN}OK${NC}  $1"; }
@@ -209,7 +209,7 @@ wait_for_service() {
 get_api_key() {
     local service="$1"
     local config_path="$MEDIA_DIR/config/$service/config.xml"
-    local max_attempts=15 attempt=0
+    local max_attempts=30 attempt=0
     while [[ $attempt -lt $max_attempts ]]; do
         if [[ -f "$config_path" ]]; then
             local key=$(grep -o '<ApiKey>[^<]*</ApiKey>' "$config_path" 2>/dev/null | sed 's/<[^>]*>//g')

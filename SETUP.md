@@ -29,6 +29,7 @@ Already running the basic stack and want an in-place migration? Use [UPGRADE.md]
 ## Prerequisites
 
 - A Mac (any recent macOS)
+- At least 50GB free disk space (media libraries will need more)
 - [OrbStack](https://orbstack.dev) (recommended) or [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
 - Plex installed and signed in
 - ProtonVPN WireGuard credentials
@@ -92,6 +93,8 @@ open -a TextEdit .env
 
 Fill in `WIREGUARD_PRIVATE_KEY` and `WIREGUARD_ADDRESSES` from your ProtonVPN account.
 
+Get your WireGuard private key from https://account.protonvpn.com/downloads#wireguard-configuration
+
 ---
 
 ## Step 4: Start the Stack
@@ -135,14 +138,15 @@ curl -s https://ipinfo.io/ip
 To test the kill switch (traffic should be blocked when the VPN drops):
 
 ```bash
-# Kill the VPN process inside the container
-docker exec gluetun sh -c 'killall -SIGUSR1 openvpn'
+# Stop the VPN container
+docker stop gluetun
 
-# Try reaching the internet from inside the VPN namespace — should fail/timeout
-docker exec gluetun sh -c 'wget -qO- --timeout=5 https://ipinfo.io/ip'
+# Try reaching the internet from qBittorrent — should fail/timeout
+# (qBittorrent is routed through gluetun and should have no network when gluetun is down)
+docker exec qbittorrent wget -qO- --timeout=5 https://ipinfo.io/ip 2>&1 || echo "Kill switch works: qBittorrent has no network"
 
 # Restore the VPN
-docker restart gluetun
+docker start gluetun
 ```
 
 If the second `wget` returns an IP instead of timing out, your kill switch isn't working. Check your Gluetun configuration.
