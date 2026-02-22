@@ -189,7 +189,6 @@ bash scripts/vpn-mode.sh nord
 | `scripts/setup.sh` | Creates folders, generates .env, copies config templates |
 | `scripts/doctor.sh` | Runs preflight checks (runtime, env, compose, ports) |
 | `scripts/upgrade-from-basic.sh` | One-shot migration from basic stack to advanced |
-| `scripts/doctor.sh` | Runs preflight checks (runtime, env, compose, ports) |
 | `scripts/configure.sh` | Auto-configures all service connections via API |
 | `scripts/health-check.sh` | Full stack health diagnostic |
 | `scripts/install-launchd-jobs.sh` | Installs all automation as background jobs |

@@ -39,13 +39,11 @@ STATE_FILE = BASE_DIR / "state" / "download-watchdog-state.json"
 LOG_FILE = BASE_DIR / "logs" / "download-watchdog.log"
 RADARR_CFG = BASE_DIR / "config" / "radarr" / "config.xml"
 SONARR_CFG = BASE_DIR / "config" / "sonarr" / "config.xml"
+CREDENTIALS_FILE = BASE_DIR / "state" / "first-run-credentials.txt"
 
 RADARR_URL = os.getenv("RADARR_URL", "http://localhost:7878")
 SONARR_URL = os.getenv("SONARR_URL", "http://localhost:8989")
 QBIT_URL = os.getenv("QBIT_URL", "http://localhost:8080")
-
-QBIT_USERNAME = os.getenv("QBIT_USERNAME", "admin")
-QBIT_PASSWORD = os.getenv("QBIT_PASSWORD", "")
 
 STALL_SECONDS = int(os.getenv("WATCHDOG_STALL_SECONDS", "1800"))
 SLOW_SECONDS = int(os.getenv("WATCHDOG_SLOW_SECONDS", "1200"))
@@ -75,6 +73,26 @@ def parse_api_key_xml(path):
     if start == -1 or end == -1:
         return ""
     return text[start + 8 : end].strip()
+
+
+def load_qbit_credentials():
+    username = os.getenv("QBIT_USERNAME", "").strip()
+    password = os.getenv("QBIT_PASSWORD", "").strip()
+
+    if username and password:
+        return username, password
+
+    if CREDENTIALS_FILE.exists():
+        try:
+            for line in CREDENTIALS_FILE.read_text(errors="ignore").splitlines():
+                if line.startswith("qBittorrent Username:") and not username:
+                    username = line.split(":", 1)[1].strip()
+                elif line.startswith("qBittorrent Password:") and not password:
+                    password = line.split(":", 1)[1].strip()
+        except Exception:
+            pass
+
+    return (username or "admin"), password
 
 
 def http_json(url, headers=None, timeout=30):
@@ -168,8 +186,14 @@ def main():
         log("[ERROR] No API keys found")
         return 1
 
+    qbit_username, qbit_password = load_qbit_credentials()
+    globals()["QBIT_USERNAME"] = qbit_username
+    globals()["QBIT_PASSWORD"] = qbit_password
+
     if not QBIT_PASSWORD:
-        log("[ERROR] QBIT_PASSWORD is not set. Check your environment or credentials file.")
+        log(
+            f"[ERROR] QBIT_PASSWORD is not set and no credentials found in {CREDENTIALS_FILE}"
+        )
         return 1
 
     try:

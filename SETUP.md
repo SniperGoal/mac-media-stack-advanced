@@ -226,7 +226,6 @@ This installs:
 - Log prune (daily cleanup, removes logs older than 30 days)
 - Download watchdog (stalled torrent auto-fix every 15 min)
 - Kometa scheduler (metadata refresh every 4 hours)
-- Log prune (daily log cleanup with 30-day retention)
 
 Automation logs go to `<MEDIA_DIR>/logs/` and launchd stdout/stderr logs go to `<MEDIA_DIR>/logs/launchd/` (default `~/Media/...`).
 
