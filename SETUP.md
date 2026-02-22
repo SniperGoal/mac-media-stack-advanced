@@ -16,6 +16,12 @@ curl -fsSL https://raw.githubusercontent.com/liamvibecodes/mac-media-stack-advan
 
 It will prompt you for VPN keys, configure all services, and install automation jobs. You'll still need to do Step 7 (configure Recyclarr, Kometa, Tdarr, and Unpackerr with API keys) manually afterward.
 
+To run from a local clone with custom paths:
+
+```bash
+bash bootstrap.sh --media-dir /Volumes/T9/Media --install-dir ~/mac-media-stack-advanced
+```
+
 ---
 
 ## Prerequisites
@@ -68,6 +74,8 @@ cd ~
 git clone https://github.com/liamvibecodes/mac-media-stack-advanced.git
 cd mac-media-stack-advanced
 bash scripts/setup.sh
+# or:
+# bash scripts/setup.sh --media-dir /Volumes/T9/Media
 ```
 
 ---
@@ -83,6 +91,14 @@ Fill in `WIREGUARD_PRIVATE_KEY` and `WIREGUARD_ADDRESSES` from your ProtonVPN ac
 ---
 
 ## Step 4: Start the Stack
+
+Run preflight checks before first startup:
+
+```bash
+bash scripts/doctor.sh
+```
+
+Then start the stack:
 
 ```bash
 docker compose up -d
@@ -138,6 +154,7 @@ bash scripts/configure.sh
 ```
 
 This configures qBittorrent, Prowlarr (indexers), Radarr, Sonarr, and Seerr. It will print your API keys at the end. **Save them.**
+It also writes credentials/API keys to `~/Media/state/first-run-credentials.txt` (mode `600`).
 
 ---
 
@@ -226,6 +243,12 @@ bash scripts/install-vpn-failover.sh
 ```
 
 This checks every 2 minutes and auto-switches between Proton and Nord after 3 consecutive failures.
+Use `docker-compose.nord-fallback.yml` only for Nord mode; Proton remains the default compose path.
+
+Check current provider anytime:
+```bash
+bash scripts/vpn-mode.sh status
+```
 
 ---
 

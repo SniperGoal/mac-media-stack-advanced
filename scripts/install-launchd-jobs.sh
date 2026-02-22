@@ -5,6 +5,7 @@
 # - Download watchdog (every 15 min)
 # - VPN failover (every 2 min, optional)
 # - Kometa (every 4 hours)
+# Usage: bash scripts/install-launchd-jobs.sh [--help]
 
 set -euo pipefail
 
@@ -17,6 +18,30 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LAUNCH_DIR="$HOME/Library/LaunchAgents"
 LOG_DIR="$HOME/Media/logs/launchd"
 PREFIX="com.media-stack"
+
+usage() {
+    cat <<EOF
+Usage: bash scripts/install-launchd-jobs.sh
+
+Installs launchd automation jobs for auto-heal, backup, watchdog, and Kometa.
+
+Options:
+  --help    Show this help message
+EOF
+}
+
+case "${1:-}" in
+    "" ) ;;
+    --help|-h)
+        usage
+        exit 0
+        ;;
+    *)
+        echo "Unknown option: $1"
+        usage
+        exit 1
+        ;;
+esac
 
 mkdir -p "$LAUNCH_DIR"
 mkdir -p "$LOG_DIR"

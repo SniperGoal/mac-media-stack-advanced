@@ -1,6 +1,6 @@
 #!/bin/bash
 # Manual VPN provider switcher: proton, nord, or status.
-# Usage: vpn-mode.sh {proton|nord|status}
+# Usage: bash scripts/vpn-mode.sh {proton|nord|status}
 
 set -euo pipefail
 
@@ -36,8 +36,15 @@ case "${1:-status}" in
     status)
         status
         ;;
+    --help|-h|help)
+        echo "Usage: bash scripts/vpn-mode.sh {proton|nord|status}"
+        echo "  proton  Switch gluetun/qbittorrent to Proton (.env)"
+        echo "  nord    Switch to Nord (.env + docker-compose.nord-fallback.yml)"
+        echo "  status  Show current provider, VPN IP, and forwarded port"
+        exit 0
+        ;;
     *)
-        echo "Usage: $0 {proton|nord|status}"
+        echo "Usage: bash scripts/vpn-mode.sh {proton|nord|status}"
         exit 1
         ;;
 esac

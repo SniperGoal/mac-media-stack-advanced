@@ -87,6 +87,12 @@ Requires OrbStack (or Docker Desktop) and Plex already installed. Handles everyt
 curl -fsSL https://raw.githubusercontent.com/liamvibecodes/mac-media-stack-advanced/main/bootstrap.sh | bash
 ```
 
+Optional flags when running from a local clone:
+
+```bash
+bash bootstrap.sh --media-dir /Volumes/T9/Media --install-dir ~/mac-media-stack-advanced --non-interactive
+```
+
 <details>
 <summary>See it in action</summary>
 <br>
@@ -100,8 +106,9 @@ If you prefer to run each step yourself:
 ```bash
 git clone https://github.com/liamvibecodes/mac-media-stack-advanced.git
 cd mac-media-stack-advanced
-bash scripts/setup.sh
+bash scripts/setup.sh            # or: bash scripts/setup.sh --media-dir /Volumes/T9/Media
 # edit .env with VPN keys
+bash scripts/doctor.sh           # preflight validation before first boot
 docker compose up -d
 docker compose --profile autoupdate up -d watchtower  # optional auto-updates
 bash scripts/configure.sh
@@ -141,11 +148,18 @@ Optional music:
 
 All download traffic routes through ProtonVPN (with optional NordVPN failover). Gluetun's built-in kill switch blocks traffic if the VPN drops, so your real IP is never exposed through the tunnel. Everything else uses your normal connection. All services auto-start on boot and self-heal if they go down.
 
+To manually switch providers after creating `.env.nord` from `.env.nord.example`:
+
+```bash
+bash scripts/vpn-mode.sh nord
+```
+
 ## Scripts
 
 | Script | Purpose |
 |--------|---------|
 | `scripts/setup.sh` | Creates folders, generates .env, copies config templates |
+| `scripts/doctor.sh` | Runs preflight checks (runtime, env, compose, ports) |
 | `scripts/configure.sh` | Auto-configures all service connections via API |
 | `scripts/health-check.sh` | Full stack health diagnostic |
 | `scripts/install-launchd-jobs.sh` | Installs all automation as background jobs |

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Media Stack Auto-Configurator (Advanced)
 # Identical to the basic version. Run ONCE after "docker compose up -d".
+# Usage: bash scripts/configure.sh [--non-interactive] [--help]
 
 set -euo pipefail
 
@@ -11,6 +12,35 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+NON_INTERACTIVE=false
+
+usage() {
+    cat <<EOF
+Usage: bash scripts/configure.sh [OPTIONS]
+
+Options:
+  --non-interactive   Skip interactive Seerr Plex login wiring
+  --help              Show this help message
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --non-interactive)
+            NON_INTERACTIVE=true
+            shift
+            ;;
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
 
 if [[ ! -f "$SCRIPT_DIR/.env" ]]; then
     echo -e "${RED}Error:${NC} .env file not found. Run setup.sh first."
@@ -19,10 +49,25 @@ fi
 source "$SCRIPT_DIR/.env"
 
 QB_PASSWORD="media$(date +%s | shasum | head -c 8)"
+CREDS_FILE="$MEDIA_DIR/state/first-run-credentials.txt"
 
 log() { echo -e "  ${GREEN}OK${NC}  $1"; }
 warn() { echo -e "  ${YELLOW}..${NC}  $1"; }
 fail() { echo -e "  ${RED}FAIL${NC}  $1"; }
+
+save_credentials() {
+    mkdir -p "$(dirname "$CREDS_FILE")"
+    cat > "$CREDS_FILE" <<EOF
+# Media Stack (Advanced) first-run credentials
+# Generated: $(date '+%Y-%m-%d %H:%M:%S')
+qBittorrent Username: admin
+qBittorrent Password: $QB_PASSWORD
+Radarr API Key: $RADARR_KEY
+Sonarr API Key: $SONARR_KEY
+Prowlarr API Key: $PROWLARR_KEY
+EOF
+    chmod 600 "$CREDS_FILE"
+}
 
 api_post_json() {
     local label="$1"
@@ -167,6 +212,7 @@ else
     api_post_form "Download category created: tv-sonarr" "http://localhost:8080/api/v2/torrents/createCategory" "SID=$QB_COOKIE" \
         --data-urlencode "category=tv-sonarr" --data-urlencode "savePath=/downloads/complete/tv-sonarr"
 fi
+save_credentials
 echo ""
 
 # 4. Configure Radarr & Sonarr
@@ -232,12 +278,17 @@ echo ""
 # 6. Seerr
 echo -e "${CYAN}[6/6] Configuring Seerr...${NC}"
 echo ""
-echo -e "  ${YELLOW}ACTION NEEDED:${NC} Open ${CYAN}http://localhost:5055${NC} in your browser"
-echo "  and click \"Sign In With Plex\"."
-echo ""
-read -p "  Press Enter after you've signed in to Seerr..."
-echo ""
-sleep 3
+if [[ "$NON_INTERACTIVE" == true ]]; then
+    warn "Non-interactive mode: skipping Seerr Plex sign-in prompt."
+    warn "Manually open http://localhost:5055 and sign in with Plex, then configure services in Seerr."
+else
+    echo -e "  ${YELLOW}ACTION NEEDED:${NC} Open ${CYAN}http://localhost:5055${NC} in your browser"
+    echo "  and click \"Sign In With Plex\"."
+    echo ""
+    read -p "  Press Enter after you've signed in to Seerr..."
+    echo ""
+    sleep 3
+fi
 
 SEERR_KEY=$(curl -fsS "http://localhost:5055/api/v1/settings/main" 2>/dev/null | grep -o '"apiKey":"[^"]*"' | cut -d'"' -f4)
 if [[ -z "$SEERR_KEY" ]]; then
@@ -271,6 +322,7 @@ echo "  qBittorrent: admin / $QB_PASSWORD"
 echo "  Radarr API Key:   $RADARR_KEY"
 echo "  Sonarr API Key:   $SONARR_KEY"
 echo "  Prowlarr API Key: $PROWLARR_KEY"
+echo "  Saved credentials: $CREDS_FILE"
 echo ""
 echo -e "  ${YELLOW}Save these!${NC} You'll need the API keys for:"
 echo "    - configs/recyclarr.yml (copy to ~/Media/config/recyclarr/)"

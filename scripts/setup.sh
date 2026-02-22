@@ -1,7 +1,7 @@
 #!/bin/bash
 # Media Stack Setup Helper (Advanced)
 # Creates all required folders and prepares config files.
-# Usage: bash scripts/setup.sh [--help]
+# Usage: bash scripts/setup.sh [--media-dir DIR] [--help]
 
 set -e
 
@@ -13,27 +13,39 @@ SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 usage() {
     cat <<EOF
-Usage: bash scripts/setup.sh
+Usage: bash scripts/setup.sh [OPTIONS]
 
 Creates Media folder structure, generates .env, and copies config templates.
 
 Options:
-  --help    Show this help message
+  --media-dir DIR   Media root path (default: ~/Media)
+  --help            Show this help message
 EOF
 }
 
-case "${1:-}" in
-    "" ) ;;
-    --help|-h)
-        usage
-        exit 0
-        ;;
-    *)
-        echo "Unknown option: $1"
-        usage
-        exit 1
-        ;;
-esac
+MEDIA_DIR_OVERRIDE=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --media-dir)
+            if [[ $# -lt 2 || "$2" == --* ]]; then
+                echo "Missing value for --media-dir"
+                usage
+                exit 1
+            fi
+            MEDIA_DIR_OVERRIDE="$2"
+            shift 2
+            ;;
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
 
 echo ""
 echo "=============================="
@@ -43,7 +55,8 @@ echo ""
 
 CURRENT_USER=$(whoami)
 HOME_DIR=$(eval echo ~$CURRENT_USER)
-MEDIA_DIR="$HOME_DIR/Media"
+MEDIA_DIR="${MEDIA_DIR_OVERRIDE:-$HOME_DIR/Media}"
+MEDIA_DIR="${MEDIA_DIR/#\~/$HOME}"
 USER_PUID=$(id -u)
 USER_PGID=$(id -g)
 

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Installs the VPN failover watcher (Proton <-> Nord auto-switch).
 # Requires .env.nord with NordVPN WireGuard credentials.
+# Usage: bash scripts/install-vpn-failover.sh [--help]
 
 set -e
 
@@ -13,6 +14,31 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LAUNCH_DIR="$HOME/Library/LaunchAgents"
 PLIST="$LAUNCH_DIR/com.media-stack.vpn-failover.plist"
 LOG_DIR="$HOME/Media/logs/launchd"
+
+usage() {
+    cat <<EOF
+Usage: bash scripts/install-vpn-failover.sh
+
+Installs the VPN failover launchd job (every 2 minutes).
+Requires .env.nord with Nord WireGuard credentials.
+
+Options:
+  --help    Show this help message
+EOF
+}
+
+case "${1:-}" in
+    "" ) ;;
+    --help|-h)
+        usage
+        exit 0
+        ;;
+    *)
+        echo "Unknown option: $1"
+        usage
+        exit 1
+        ;;
+esac
 
 mkdir -p "$LOG_DIR"
 
