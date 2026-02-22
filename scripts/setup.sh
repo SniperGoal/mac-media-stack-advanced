@@ -58,6 +58,11 @@ if [[ ! -f "$MEDIA_DIR/config/kometa/config.yml" ]]; then
     echo "  Copied kometa.yml template (edit Plex token + TMDB key after first boot)"
 fi
 
+if [[ ! -f "$MEDIA_DIR/config/archive-exceptions.txt" ]]; then
+    cp "$SCRIPT_DIR/configs/archive-exceptions.txt.example" "$MEDIA_DIR/config/archive-exceptions.txt"
+    echo "  Copied archive-exceptions template (optional: list titles to never archive)"
+fi
+
 echo ""
 echo "=============================="
 echo "  Setup complete!"

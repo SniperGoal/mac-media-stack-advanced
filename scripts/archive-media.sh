@@ -18,6 +18,7 @@ PLEX_MOVIES_SECTION="1"
 PLEX_TV_SECTION="2"
 WATCHED_TMP_DIR=""
 EXCEPTIONS_FILE=""
+RSYNC_SUPPORTS_PROTECT_ARGS=0
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -132,21 +133,31 @@ is_excluded_name() {
 }
 
 parse_args() {
+    require_arg() {
+        local flag="$1"
+        local value="${2:-}"
+        if [[ -z "$value" || "$value" == --* ]]; then
+            echo -e "${RED}ERR${NC} Missing value for $flag" >&2
+            exit 1
+        fi
+        echo "$value"
+    }
+
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --execute) EXECUTE=1; shift ;;
-            --days) DAYS="${2:-}"; shift 2 ;;
-            --min-size-gb) MIN_SIZE_GB="${2:-}"; shift 2 ;;
-            --type) TYPE="${2:-}"; shift 2 ;;
-            --source) SOURCE_ROOT="${2:-}"; shift 2 ;;
-            --archive) ARCHIVE_ROOT="${2:-}"; shift 2 ;;
-            --log) LOG_FILE="${2:-}"; shift 2 ;;
-            --exceptions) EXCEPTIONS_FILE="${2:-}"; shift 2 ;;
+            --days) DAYS="$(require_arg --days "${2:-}")"; shift 2 ;;
+            --min-size-gb) MIN_SIZE_GB="$(require_arg --min-size-gb "${2:-}")"; shift 2 ;;
+            --type) TYPE="$(require_arg --type "${2:-}")"; shift 2 ;;
+            --source) SOURCE_ROOT="$(require_arg --source "${2:-}")"; shift 2 ;;
+            --archive) ARCHIVE_ROOT="$(require_arg --archive "${2:-}")"; shift 2 ;;
+            --log) LOG_FILE="$(require_arg --log "${2:-}")"; shift 2 ;;
+            --exceptions) EXCEPTIONS_FILE="$(require_arg --exceptions "${2:-}")"; shift 2 ;;
             --only-watched) ONLY_WATCHED=1; shift ;;
-            --plex-url) PLEX_URL="${2:-}"; shift 2 ;;
-            --plex-token) PLEX_TOKEN="${2:-}"; shift 2 ;;
-            --plex-movies-section) PLEX_MOVIES_SECTION="${2:-}"; shift 2 ;;
-            --plex-tv-section) PLEX_TV_SECTION="${2:-}"; shift 2 ;;
+            --plex-url) PLEX_URL="$(require_arg --plex-url "${2:-}")"; shift 2 ;;
+            --plex-token) PLEX_TOKEN="$(require_arg --plex-token "${2:-}")"; shift 2 ;;
+            --plex-movies-section) PLEX_MOVIES_SECTION="$(require_arg --plex-movies-section "${2:-}")"; shift 2 ;;
+            --plex-tv-section) PLEX_TV_SECTION="$(require_arg --plex-tv-section "${2:-}")"; shift 2 ;;
             -h|--help) usage; exit 0 ;;
             *) echo -e "${RED}ERR${NC} Unknown argument: $1" >&2; usage; exit 1 ;;
         esac
@@ -419,7 +430,11 @@ process_library() {
 
         echo -e "${CYAN}MOV${NC}  $name ($size_h)"
         log "[MOVE] ${label}: copying $name -> $dst_dir"
-        rsync -a --protect-args "$src_dir/" "$dst_dir/"
+        if (( RSYNC_SUPPORTS_PROTECT_ARGS == 1 )); then
+            rsync -a --protect-args -- "$src_dir/" "$dst_dir/"
+        else
+            rsync -a -- "$src_dir/" "$dst_dir/"
+        fi
 
         local src_count dst_count
         src_count="$(find "$src_dir" -type f | wc -l | tr -d ' ')"
@@ -446,6 +461,9 @@ main() {
 
     if ! command -v rsync >/dev/null 2>&1; then
         echo -e "${RED}ERR${NC} rsync is required but not found" >&2; exit 1
+    fi
+    if rsync --help 2>&1 | grep -q -- '--protect-args'; then
+        RSYNC_SUPPORTS_PROTECT_ARGS=1
     fi
 
     validate_inputs

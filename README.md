@@ -243,7 +243,7 @@ bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archiv
 bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archive --only-watched
 ```
 
-**Protecting favorites:** Create a file at `~/Media/config/archive-exceptions.txt` with one title per line. Anything listed won't be archived regardless of age or size. See `configs/archive-exceptions.txt.example` for the format.
+**Protecting favorites:** `scripts/setup.sh` creates `~/Media/config/archive-exceptions.txt` for you. Add one title per line and anything listed won't be archived regardless of age or size. See `configs/archive-exceptions.txt.example` for the format.
 
 The script verifies file counts after copying and only deletes the source if the counts match. If verification fails, your original files are untouched.
 
