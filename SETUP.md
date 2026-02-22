@@ -22,6 +22,8 @@ To run from a local clone with custom paths:
 bash bootstrap.sh --media-dir /Volumes/T9/Media --install-dir ~/mac-media-stack-advanced
 ```
 
+Already running the basic stack and want an in-place migration? Use [UPGRADE.md](UPGRADE.md).
+
 ---
 
 ## Prerequisites
@@ -217,6 +219,7 @@ bash scripts/install-launchd-jobs.sh
 This installs:
 - Auto-healer (hourly VPN/container health check + restart)
 - Nightly backup (configs + databases, 14-day retention)
+- Log prune (daily cleanup, removes logs older than 30 days)
 - Download watchdog (stalled torrent auto-fix every 15 min)
 - Kometa scheduler (metadata refresh every 4 hours)
 - Log prune (daily log cleanup with 30-day retention)

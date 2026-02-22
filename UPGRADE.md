@@ -1,130 +1,101 @@
 # Upgrade Guide: Basic -> Advanced
 
-This guide upgrades an existing `mac-media-stack` install to `mac-media-stack-advanced` without losing your media library or app config.
+This guide upgrades an existing `mac-media-stack` install to `mac-media-stack-advanced` without moving your media library.
 
-## Before You Start
+## Recommended: One-shot upgrader
 
-- Stop any active downloads first (recommended).
-- Keep your existing `MEDIA_DIR` path exactly the same.
-- Do not run basic and advanced at the same time.
-
-## What Carries Over
-
-If you reuse the same `MEDIA_DIR`, advanced will reuse your existing:
-
-- Movies/TV library files
-- Radarr/Sonarr/Prowlarr/qBittorrent/Bazarr/Seerr configs
-- API keys and existing app state inside `${MEDIA_DIR}/config`
-
-## 1. Backup (Required)
+Use the built-in migration script:
 
 ```bash
-# adjust if your media path is not ~/Media
-MEDIA_DIR=~/Media
+cd ~/mac-media-stack-advanced
+bash scripts/upgrade-from-basic.sh
+```
 
-# backup media stack config/state quickly
+### Common flags
+
+```bash
+# Non-default basic repo location
+bash scripts/upgrade-from-basic.sh --basic-dir /path/to/mac-media-stack
+
+# Override MEDIA_DIR (if different from basic .env)
+bash scripts/upgrade-from-basic.sh --media-dir /Volumes/T9/Media
+
+# Fully non-interactive run (skips Seerr sign-in prompt in configure.sh)
+bash scripts/upgrade-from-basic.sh --yes --non-interactive
+
+# Skip backup snapshot (not recommended)
+bash scripts/upgrade-from-basic.sh --yes --skip-backup
+
+# Start watchtower profile after upgrade
+bash scripts/upgrade-from-basic.sh --enable-watchtower
+```
+
+What the upgrader does:
+
+1. Validates basic + advanced repo paths
+2. Creates a backup snapshot (env + config/state/logs)
+3. Migrates shared env keys from basic to advanced
+4. Stops basic stack
+5. Runs advanced setup + preflight doctor checks
+6. Starts advanced stack
+7. Runs auto-configuration
+8. Installs launchd automation jobs
+9. Runs health checks
+
+## Manual upgrade (step-by-step)
+
+If you prefer full manual control:
+
+1. Backup:
+```bash
+MEDIA_DIR=~/Media
 mkdir -p ~/media-stack-upgrade-backup
 cp -a "$MEDIA_DIR/config" ~/media-stack-upgrade-backup/config
 cp -a "$MEDIA_DIR/state" ~/media-stack-upgrade-backup/state 2>/dev/null || true
 cp -a "$MEDIA_DIR/logs" ~/media-stack-upgrade-backup/logs 2>/dev/null || true
 ```
-
-If you already use the advanced backup repo/tooling, run that instead.
-
-## 2. Stop Basic Stack
-
+2. Stop basic:
 ```bash
 cd ~/mac-media-stack
 docker compose down
 ```
-
-## 3. Clone Advanced
-
+3. Prepare advanced:
 ```bash
-cd ~
-git clone https://github.com/liamvibecodes/mac-media-stack-advanced.git
-cd mac-media-stack-advanced
-```
-
-## 4. Configure `.env` for Existing Media Path
-
-Generate a starter `.env` if needed:
-
-```bash
+cd ~/mac-media-stack-advanced
 bash scripts/setup.sh
-```
-
-Open `.env` and confirm:
-
-- `MEDIA_DIR` points to your existing library path from basic
-- your VPN keys are set (`WIREGUARD_PRIVATE_KEY`, `WIREGUARD_ADDRESSES`)
-
-```bash
-open -a TextEdit .env
-```
-
-## 5. Run Preflight + Start Advanced
-
-```bash
 bash scripts/doctor.sh
+```
+4. Start and configure:
+```bash
 docker compose up -d
-```
-
-## 6. Run Auto-Configuration
-
-```bash
 bash scripts/configure.sh
-```
-
-This auto-wires:
-
-- qBittorrent, Radarr, Sonarr, Prowlarr, Seerr
-- Recyclarr API keys
-- Unpackerr API keys (+ Unpackerr restart)
-
-## 7. Complete Advanced-Only Manual Setup
-
-Still manual by design:
-
-- Kometa: add `PLEX_TOKEN` + TMDB API key in `${MEDIA_DIR}/config/kometa/config.yml`
-- Tdarr: configure libraries/plugins in Web UI (`http://localhost:8265`)
-
-## 8. Install Automation Jobs
-
-```bash
 bash scripts/install-launchd-jobs.sh
 ```
-
-This installs auto-heal, backup, watchdog, Kometa runner, and log-prune.
-
-## 9. Validate
-
+5. Validate:
 ```bash
 bash scripts/health-check.sh
 ```
 
-Confirm:
+## Advanced-only follow-up
 
-- core services show `OK`
-- VPN shows healthy
-- Plex can still see your existing libraries
+After either upgrade path, confirm:
 
-## Optional: Enable Watchtower
+1. `~/Media/config/kometa/config.yml` has `PLEX_TOKEN` + TMDB key
+2. Tdarr libraries/plugins are configured at `http://localhost:8265`
+3. `bash scripts/health-check.sh` reports clean results
 
-```bash
-docker compose --profile autoupdate up -d watchtower
-```
+## Rollback
 
-## Rollback (If Needed)
+Quick rollback:
 
 ```bash
-# stop advanced
 cd ~/mac-media-stack-advanced
 docker compose down
 
-# bring basic back
 cd ~/mac-media-stack
 docker compose up -d
 ```
 
-Because both stacks use the same `MEDIA_DIR`, rollback is quick.
+If you used the one-shot script, backup snapshots are saved under:
+
+`~/media-stack-upgrade-backup/YYYYMMDD-HHMMSS/`

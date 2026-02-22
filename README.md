@@ -97,6 +97,16 @@ Optional flags when running from a local clone:
 bash bootstrap.sh --media-dir /Volumes/T9/Media --install-dir ~/mac-media-stack-advanced --non-interactive
 ```
 
+## Upgrading From Basic
+
+Already running `mac-media-stack` and want to keep your existing library/configs?
+
+Use the one-shot upgrader: [UPGRADE.md](UPGRADE.md)
+
+```bash
+bash scripts/upgrade-from-basic.sh
+```
+
 <details>
 <summary>See it in action</summary>
 <br>
@@ -164,6 +174,8 @@ bash scripts/vpn-mode.sh nord
 | Script | Purpose |
 |--------|---------|
 | `scripts/setup.sh` | Creates folders, generates .env, copies config templates |
+| `scripts/doctor.sh` | Runs preflight checks (runtime, env, compose, ports) |
+| `scripts/upgrade-from-basic.sh` | One-shot migration from basic stack to advanced |
 | `scripts/doctor.sh` | Runs preflight checks (runtime, env, compose, ports) |
 | `scripts/configure.sh` | Auto-configures all service connections via API |
 | `scripts/health-check.sh` | Full stack health diagnostic |

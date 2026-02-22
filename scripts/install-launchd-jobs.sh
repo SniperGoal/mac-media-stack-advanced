@@ -3,6 +3,7 @@
 # - Auto-heal (hourly)
 # - Nightly backup
 # - Download watchdog (every 15 min)
+# - Log prune (daily)
 # - VPN failover (every 2 min, optional)
 # - Kometa (every 4 hours)
 # Usage: bash scripts/install-launchd-jobs.sh [--help]
@@ -98,6 +99,7 @@ echo ""
 
 install_plist "auto-heal" 3600 "$SCRIPT_DIR/auto-heal.sh"
 install_plist "backup" 86400 "$SCRIPT_DIR/backup.sh"
+install_plist "log-prune" 86400 "$SCRIPT_DIR/log-prune.sh"
 install_plist "download-watchdog" 900 "$SCRIPT_DIR/download-watchdog.py" "false"
 
 # Kometa one-shot (every 4 hours = 14400s)
