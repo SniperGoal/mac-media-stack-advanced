@@ -2,7 +2,12 @@
 # Media Stack Auto-Healer
 # Runs hourly via launchd. Checks VPN and container health, restarts what's broken.
 
-BASE_DIR="$HOME/Media"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=scripts/lib/media-path.sh
+source "$SCRIPT_DIR/lib/media-path.sh"
+
+BASE_DIR="$(resolve_media_dir "$PROJECT_DIR")"
 LOG_DIR="$BASE_DIR/logs"
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/auto-heal.log"

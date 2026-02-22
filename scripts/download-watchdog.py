@@ -18,7 +18,23 @@ import urllib.error
 import http.cookiejar
 from pathlib import Path
 
-BASE_DIR = Path(os.path.expanduser("~/Media"))
+def load_media_dir() -> Path:
+    env_media = os.getenv("MEDIA_DIR")
+    if env_media:
+        return Path(os.path.expanduser(env_media))
+
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    if env_path.exists():
+        for line in env_path.read_text(errors="ignore").splitlines():
+            if line.startswith("MEDIA_DIR="):
+                value = line.split("=", 1)[1].strip().strip('"').strip("'")
+                if value:
+                    return Path(os.path.expanduser(value))
+
+    return Path.home() / "Media"
+
+
+BASE_DIR = load_media_dir()
 STATE_FILE = BASE_DIR / "state" / "download-watchdog-state.json"
 LOG_FILE = BASE_DIR / "logs" / "download-watchdog.log"
 RADARR_CFG = BASE_DIR / "config" / "radarr" / "config.xml"

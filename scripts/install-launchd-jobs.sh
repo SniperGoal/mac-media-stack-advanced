@@ -15,15 +15,19 @@ NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=scripts/lib/media-path.sh
+source "$SCRIPT_DIR/lib/media-path.sh"
+
+MEDIA_DIR="$(resolve_media_dir "$PROJECT_DIR")"
 LAUNCH_DIR="$HOME/Library/LaunchAgents"
-LOG_DIR="$HOME/Media/logs/launchd"
+LOG_DIR="$MEDIA_DIR/logs/launchd"
 PREFIX="com.media-stack"
 
 usage() {
     cat <<EOF
 Usage: bash scripts/install-launchd-jobs.sh
 
-Installs launchd automation jobs for auto-heal, backup, watchdog, and Kometa.
+Installs launchd automation jobs for auto-heal, backup, watchdog, Kometa, and log prune.
 
 Options:
   --help    Show this help message
@@ -98,12 +102,14 @@ install_plist "download-watchdog" 900 "$SCRIPT_DIR/download-watchdog.py" "false"
 
 # Kometa one-shot (every 4 hours = 14400s)
 install_plist "kometa" 14400 "$SCRIPT_DIR/run-kometa.sh"
+# Log prune (every 24 hours)
+install_plist "log-prune" 86400 "$SCRIPT_DIR/log-prune.sh"
 
 echo ""
 echo -e "${YELLOW}Optional:${NC} VPN failover (requires NordVPN as backup)"
 echo "  To install: bash $SCRIPT_DIR/install-vpn-failover.sh"
 echo ""
-echo "Logs: ~/Media/logs/ and ~/Media/logs/launchd/"
+echo "Logs: $MEDIA_DIR/logs/ and $MEDIA_DIR/logs/launchd/"
 echo ""
 echo "To uninstall all:"
 echo "  for f in $LAUNCH_DIR/$PREFIX.*.plist; do launchctl unload \"\$f\" && rm \"\$f\"; done"

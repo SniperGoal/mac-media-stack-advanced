@@ -35,7 +35,27 @@ except ImportError:
     print("ERROR: mutagen not installed. Run: pip install mutagen")
     sys.exit(1)
 
-MUSIC_ROOT = os.environ.get("MUSIC_DIR", os.path.expanduser("~/Media/Music"))
+def load_default_music_root() -> str:
+    env_music = os.environ.get("MUSIC_DIR")
+    if env_music:
+        return os.path.expanduser(env_music)
+
+    env_media = os.environ.get("MEDIA_DIR")
+    if env_media:
+        return os.path.expanduser(os.path.join(env_media, "Music"))
+
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    if env_path.exists():
+        for line in env_path.read_text(errors="ignore").splitlines():
+            if line.startswith("MEDIA_DIR="):
+                value = line.split("=", 1)[1].strip().strip('"').strip("'")
+                if value:
+                    return os.path.expanduser(os.path.join(value, "Music"))
+
+    return os.path.expanduser("~/Media/Music")
+
+
+MUSIC_ROOT = load_default_music_root()
 DRY_RUN = True
 stats = {"meta": 0, "file_renames": 0, "dir_renames": 0, "errors": 0}
 

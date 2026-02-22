@@ -32,7 +32,7 @@
 There are dozens of *arr stack Docker Compose repos on GitHub. Almost all of them dump a compose file and leave you to figure out the rest. This one is different:
 
 - **One command to install.** Clone, configure, and start everything with a single `curl | bash`. No 45-minute manual setup.
-- **Auto-configures itself.** The configure script wires up all 13 services via their APIs. No clicking through web UIs.
+- **Auto-configures itself.** The configure script wires up the core request/download stack via API (qBittorrent, Prowlarr, Radarr, Sonarr, Seerr). No clicking through those web UIs.
 - **Built for macOS.** Native paths, launchd instead of systemd, OrbStack or Docker Desktop instead of bare Docker. Not a Linux guide with "should work on Mac" in the footnotes.
 - **Self-healing.** Hourly health checks, download watchdog, VPN failover between providers. Runs unattended.
 - **Quality automation.** TRaSH Guides profiles filter out bad releases. Kometa keeps Plex metadata clean. Tdarr saves disk space with automatic transcoding.
@@ -75,9 +75,12 @@ Then open Tidarr at `http://localhost:8484` to authenticate with your Tidal acco
 | Download watchdog | Every 15 min | Detects stalled/slow torrents, auto-fixes or swaps them |
 | Kometa | Every 4 hours | Updates Plex collections and metadata overlays |
 | Log prune | Daily | Removes log files older than 30 days |
-| Franchise sort | After Kometa | Sorts franchise collection movies by release date in Plex |
+| Franchise sort | Optional/manual | Sorts franchise collection movies by release date in Plex |
 | VPN failover | Every 2 min (optional) | Auto-switches between ProtonVPN and NordVPN on sustained failure |
-| Watchtower | Weekly (optional) | Auto-pulls latest container images and recreates updated services |
+| Watchtower | Daily at 04:00 (optional) | Auto-pulls latest container images and recreates updated services |
+
+Franchise sorting is kept manual by default because it requires your Plex token:
+`PLEX_TOKEN=... python3 scripts/franchise-sort.py`
 
 ## One-Command Install
 
@@ -115,7 +118,7 @@ bash scripts/configure.sh
 bash scripts/install-launchd-jobs.sh
 ```
 
-The `watchtower` line above enables automatic container image updates (checks weekly). It's optional but recommended so your services stay patched without manual pulls.
+The `watchtower` line above enables automatic container image updates (scheduled daily at 04:00 in compose). It's optional but recommended so your services stay patched without manual pulls.
 
 ## Full Setup Guide
 
@@ -221,7 +224,7 @@ docker compose --profile music up -d
 
 ### Tidarr Download Config
 
-The setup script creates a default `tiddl` config at `~/Media/config/tidarr/.tiddl/config.toml`. Key settings:
+The setup script creates a default `tiddl` config at `<MEDIA_DIR>/config/tidarr/.tiddl/config.toml` (default `<MEDIA_DIR>` is `~/Media`). Key settings:
 
 - **Quality:** `max` (24-bit Hi-Res FLAC when available, falls back to 16-bit/44.1kHz)
 - **Download path:** Your Plex music folder (files go directly to the library)
@@ -282,7 +285,7 @@ bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archiv
 bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archive --only-watched
 ```
 
-**Protecting favorites:** `scripts/setup.sh` creates `~/Media/config/archive-exceptions.txt` for you. Add one title per line and anything listed won't be archived regardless of age or size. See `configs/archive-exceptions.txt.example` for the format.
+**Protecting favorites:** `scripts/setup.sh` creates `<MEDIA_DIR>/config/archive-exceptions.txt` for you (default `<MEDIA_DIR>` is `~/Media`). Add one title per line and anything listed won't be archived regardless of age or size. See `configs/archive-exceptions.txt.example` for the format.
 
 The script verifies file counts after copying and only deletes the source if the counts match. If verification fails, your original files are untouched.
 

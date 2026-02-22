@@ -11,9 +11,13 @@ NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=scripts/lib/media-path.sh
+source "$SCRIPT_DIR/lib/media-path.sh"
+
+MEDIA_DIR="$(resolve_media_dir "$PROJECT_DIR")"
 LAUNCH_DIR="$HOME/Library/LaunchAgents"
 PLIST="$LAUNCH_DIR/com.media-stack.vpn-failover.plist"
-LOG_DIR="$HOME/Media/logs/launchd"
+LOG_DIR="$MEDIA_DIR/logs/launchd"
 
 usage() {
     cat <<EOF
@@ -76,4 +80,4 @@ launchctl unload "$PLIST" 2>/dev/null || true
 launchctl load "$PLIST"
 
 echo -e "${GREEN}VPN failover installed.${NC} Checks every 2 minutes."
-echo "Log: ~/Media/logs/vpn-failover.log"
+echo "Log: $MEDIA_DIR/logs/vpn-failover.log"

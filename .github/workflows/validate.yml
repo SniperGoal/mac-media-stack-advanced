@@ -20,7 +20,22 @@ jobs:
 
       - name: Validate python scripts
         run: |
-          python3 -m py_compile scripts/download-watchdog.py
+          while IFS= read -r -d '' f; do
+            python3 -m py_compile "$f"
+          done < <(find scripts -type f -name '*.py' -print0)
+
+      - name: Validate media path usage
+        run: |
+          # Automation scripts must resolve MEDIA_DIR from env/.env, not hardcode $HOME/Media.
+          ! rg -n '\$HOME/Media' \
+            scripts/auto-heal.sh \
+            scripts/backup.sh \
+            scripts/download-watchdog.py \
+            scripts/install-launchd-jobs.sh \
+            scripts/install-vpn-failover.sh \
+            scripts/log-prune.sh \
+            scripts/setup-music.sh \
+            scripts/vpn-failover-watch.sh
 
       - name: Validate compose config
         run: |

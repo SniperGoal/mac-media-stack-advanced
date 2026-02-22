@@ -5,8 +5,12 @@
 
 set -euo pipefail
 
-BASE_DIR="$HOME/Media"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/lib/media-path.sh
+source "$SCRIPT_DIR/lib/media-path.sh"
+
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+BASE_DIR="$(resolve_media_dir "$PROJECT_DIR")"
 STATE_FILE="$BASE_DIR/state/vpn-failover-state.json"
 LOG_FILE="$BASE_DIR/logs/vpn-failover.log"
 LOCK_DIR="/tmp/com.media-stack.vpn-failover.lock"

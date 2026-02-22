@@ -6,7 +6,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-MEDIA_DIR="${MEDIA_DIR:-$HOME/Media}"
+# shellcheck source=scripts/lib/media-path.sh
+source "$SCRIPT_DIR/scripts/lib/media-path.sh"
+MEDIA_DIR="$(resolve_media_dir "$SCRIPT_DIR")"
 RETENTION_DAYS="${LOG_PRUNE_RETENTION_DAYS:-30}"
 
 usage() {

@@ -11,6 +11,8 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib/media-path.sh
+source "$SCRIPT_DIR/scripts/lib/media-path.sh"
 
 echo ""
 echo "=============================="
@@ -18,9 +20,7 @@ echo "  Music Setup (Lidarr + Tidarr)"
 echo "=============================="
 echo ""
 
-CURRENT_USER=$(whoami)
-HOME_DIR=$(eval echo ~$CURRENT_USER)
-MEDIA_DIR="$HOME_DIR/Media"
+MEDIA_DIR="$(resolve_media_dir "$SCRIPT_DIR")"
 
 # Create directories
 echo "Creating music directories..."

@@ -4,11 +4,15 @@
 
 set -euo pipefail
 
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib/media-path.sh
+source "$PROJECT_DIR/scripts/lib/media-path.sh"
+
 EXECUTE=0
 DAYS=180
 MIN_SIZE_GB=8
 TYPE="both"
-SOURCE_ROOT="$HOME/Media"
+SOURCE_ROOT="$(resolve_media_dir "$PROJECT_DIR")"
 ARCHIVE_ROOT=""
 LOG_FILE=""
 ONLY_WATCHED=0

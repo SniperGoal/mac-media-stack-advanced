@@ -65,6 +65,8 @@ Or download from https://orbstack.dev. Open it once after installing.
 
 Both options use the same `docker` and `docker compose` commands. Everything in this guide works identically with either one.
 
+If you use a custom media location (`MEDIA_DIR` in `.env`), replace any `~/Media` path below with that value.
+
 ---
 
 ## Step 2: Download and Setup
@@ -154,7 +156,7 @@ bash scripts/configure.sh
 ```
 
 This configures qBittorrent, Prowlarr (indexers), Radarr, Sonarr, and Seerr. It will print your API keys at the end. **Save them.**
-It also writes credentials/API keys to `~/Media/state/first-run-credentials.txt` (mode `600`).
+It also writes credentials/API keys to `<MEDIA_DIR>/state/first-run-credentials.txt` (mode `600`, default path `~/Media/state/first-run-credentials.txt`).
 
 ---
 
@@ -171,7 +173,7 @@ It also writes credentials/API keys to `~/Media/state/first-run-credentials.txt`
 
 ### Recyclarr (TRaSH quality profiles)
 
-The setup script copied a template to `~/Media/config/recyclarr/recyclarr.yml`. Open it and replace the API key placeholders with the keys printed by configure.sh:
+The setup script copied a template to `<MEDIA_DIR>/config/recyclarr/recyclarr.yml` (default: `~/Media/config/recyclarr/recyclarr.yml`). Open it and replace the API key placeholders with the keys printed by configure.sh:
 
 ```bash
 open -a TextEdit ~/Media/config/recyclarr/recyclarr.yml
@@ -228,8 +230,9 @@ This installs:
 - Nightly backup (configs + databases, 14-day retention)
 - Download watchdog (stalled torrent auto-fix every 15 min)
 - Kometa scheduler (metadata refresh every 4 hours)
+- Log prune (daily log cleanup with 30-day retention)
 
-Automation logs go to `~/Media/logs/` and launchd stdout/stderr logs go to `~/Media/logs/launchd/`.
+Automation logs go to `<MEDIA_DIR>/logs/` and launchd stdout/stderr logs go to `<MEDIA_DIR>/logs/launchd/` (default `~/Media/...`).
 
 ### Optional: VPN Failover
 
@@ -277,6 +280,7 @@ bash scripts/health-check.sh
 tail -50 ~/Media/logs/auto-heal.log
 tail -50 ~/Media/logs/download-watchdog.log
 tail -50 ~/Media/logs/vpn-failover.log
+tail -50 ~/Media/logs/log-prune.log
 ```
 
 **Manual VPN switch:**

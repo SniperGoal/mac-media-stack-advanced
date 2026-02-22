@@ -23,11 +23,28 @@ import xml.etree.ElementTree as ET
 import logging
 import os
 import sys
+from pathlib import Path
+
+def load_default_media_log_dir() -> str:
+    env_media = os.getenv("MEDIA_DIR")
+    if env_media:
+        return os.path.expanduser(os.path.join(env_media, "logs"))
+
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    if env_path.exists():
+        for line in env_path.read_text(errors="ignore").splitlines():
+            if line.startswith("MEDIA_DIR="):
+                value = line.split("=", 1)[1].strip().strip('"').strip("'")
+                if value:
+                    return os.path.expanduser(os.path.join(value, "logs"))
+
+    return os.path.expanduser("~/Media/logs")
+
 
 PLEX_URL = os.environ.get("PLEX_URL", "http://localhost:32400")
 PLEX_TOKEN = os.environ.get("PLEX_TOKEN", "")
 SECTION_ID = os.environ.get("PLEX_SECTION_ID", "1")
-LOG_DIR = os.environ.get("MEDIA_LOG_DIR", os.path.expanduser("~/Media/logs"))
+LOG_DIR = os.environ.get("MEDIA_LOG_DIR", load_default_media_log_dir())
 DRY_RUN = False
 
 
