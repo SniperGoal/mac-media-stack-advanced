@@ -76,7 +76,7 @@ fi
 echo ""
 
 echo "Containers:"
-for name in gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr tdarr unpackerr recyclarr kometa lidarr tidarr; do
+for name in gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr tdarr unpackerr recyclarr kometa tautulli lidarr tidarr; do
     state=$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null)
     if [[ "$state" == "running" ]]; then
         echo -e "  ${GREEN}OK${NC}  $name"
@@ -84,6 +84,8 @@ for name in gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr
     elif [[ "$name" == "kometa" ]] && [[ "$state" == "exited" || "$state" == "created" ]]; then
         # Kometa runs as a one-shot, exited is normal
         echo -e "  ${YELLOW}OK${NC}  $name (one-shot, not always running)"
+    elif [[ "$name" == "tautulli" ]] && [[ -z "$state" ]]; then
+        echo -e "  ${YELLOW}SKIP${NC}  $name (not installed)"
     elif [[ "$name" == "lidarr" || "$name" == "tidarr" ]] && [[ -z "$state" ]]; then
         echo -e "  ${YELLOW}SKIP${NC}  $name (music profile not enabled)"
     else
@@ -109,6 +111,12 @@ check_service "Radarr" "http://localhost:7878"
 check_service "Bazarr" "http://localhost:6767"
 check_service "Seerr" "http://localhost:5055"
 check_service "Tdarr" "http://localhost:8265"
+check_service "FlareSolverr" "http://localhost:8191"
+
+# Tautulli (optional, not part of compose by default)
+if docker inspect -f '{{.State.Status}}' tautulli &>/dev/null; then
+    check_service "Tautulli" "http://localhost:8181"
+fi
 
 # Music services (only if profile enabled)
 if docker inspect -f '{{.State.Status}}' lidarr &>/dev/null; then

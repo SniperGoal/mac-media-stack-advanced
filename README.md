@@ -74,6 +74,8 @@ Then open Tidarr at `http://localhost:8484` to authenticate with your Tidal acco
 | Nightly backup | Daily | Backs up all configs and databases (14-day retention) |
 | Download watchdog | Every 15 min | Detects stalled/slow torrents, auto-fixes or swaps them |
 | Kometa | Every 4 hours | Updates Plex collections and metadata overlays |
+| Log prune | Daily | Removes log files older than 30 days |
+| Franchise sort | After Kometa | Sorts franchise collection movies by release date in Plex |
 | VPN failover | Every 2 min (optional) | Auto-switches between ProtonVPN and NordVPN on sustained failure |
 
 ## One-Command Install
@@ -152,6 +154,9 @@ All download traffic routes through ProtonVPN (with optional NordVPN failover). 
 | `scripts/vpn-failover-watch.sh` | Automatic VPN failover daemon |
 | `scripts/run-kometa.sh` | Trigger Kometa metadata run |
 | `scripts/setup-music.sh` | Creates music directories and Tidarr config (optional) |
+| `scripts/log-prune.sh` | Prunes old log files (30-day default retention) |
+| `scripts/franchise-sort.py` | Auto-sorts franchise collections in Plex by release date |
+| `scripts/music-cleanup.py` | Fixes music metadata and folder naming (optional, music profile) |
 | `scripts/archive-media.sh` | Move old/watched media to an external archive drive |
 | `scripts/refresh-image-lock.sh` | Refreshes pinned image digests and regenerates IMAGE_LOCK.md |
 
@@ -213,6 +218,23 @@ The setup script creates a default `tiddl` config at `~/Media/config/tidarr/.tid
 | Search and download from Tidal manually | http://localhost:8484 |
 | Manage music library (add artists, monitor) | http://localhost:8686 |
 | Listen via Plex/Plexamp | http://localhost:32400/web |
+
+### Music Library Cleanup
+
+If your music files have inconsistent metadata (different featuring formats, year suffixes in folder names, missing album artist tags), the cleanup script fixes common issues:
+
+```bash
+# Preview what would change (dry run, nothing is modified)
+python3 scripts/music-cleanup.py
+
+# Apply fixes
+python3 scripts/music-cleanup.py --apply
+
+# Custom music directory
+python3 scripts/music-cleanup.py --path /Volumes/External/Music
+```
+
+Requires `mutagen`: `pip install mutagen`
 
 ### Starting/Stopping Music Services
 
