@@ -247,6 +247,43 @@ services:
       retries: 3
     restart: unless-stopped
 
+  jellystat-db:
+    image: postgres:18.1
+    container_name: jellystat-db
+    profiles: ["jellyfin"]
+    environment:
+      - POSTGRES_DB=jfstat
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${JELLYSTAT_DB_PASSWORD}
+    volumes:
+      - ${MEDIA_DIR}/config/jellystat/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  jellystat:
+    image: cyfershepard/jellystat:latest
+    container_name: jellystat
+    profiles: ["jellyfin"]
+    depends_on:
+      jellystat-db:
+        condition: service_healthy
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${JELLYSTAT_DB_PASSWORD}
+      - POSTGRES_IP=jellystat-db
+      - POSTGRES_PORT=5432
+      - JWT_SECRET=${JELLYSTAT_JWT_SECRET}
+      - TZ=${TIMEZONE:-America/New_York}
+    volumes:
+      - ${MEDIA_DIR}/config/jellystat/backup:/app/backend/backup-data
+    ports:
+      - 127.0.0.1:3000:3000
+    restart: unless-stopped
+
   # ─── Optional: Music (Lidarr + Tidarr) ───
   # Uncomment to add music management. Run: bash scripts/setup-music.sh first.
 

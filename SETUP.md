@@ -198,7 +198,11 @@ It also writes credentials/API keys to `<MEDIA_DIR>/state/first-run-credentials.
 1. Open http://localhost:8096
 2. Complete the setup wizard
 3. Add libraries: Movies = `/data/movies`, TV Shows = `/data/tvshows`
-4. Generate an API key (Administration > API Keys) if you plan to use `archive-media.sh --only-watched`
+4. Generate an API key (Administration > API Keys) for Jellystat and `archive-media.sh --only-watched`
+
+**Plugins:** `configure.sh` auto-installs **Intro Skipper** (adds "Skip Intro" button on TV shows) and **TMDb Box Sets** (auto-creates franchise collections). A Jellyfin restart is required after plugin install. If auto-install fails, install them manually via Administration > Plugins > Catalog.
+
+**Jellystat** (analytics): Open `http://localhost:3000`, create an account, and connect to `http://jellyfin:8096` with your API key. Tracks watch history, user activity, and library stats.
 
 ---
 
@@ -286,6 +290,7 @@ bash scripts/vpn-mode.sh status
 | Browse and request | http://localhost:5055 |
 | Watch (Plex) | http://localhost:32400/web |
 | Watch (Jellyfin) | http://localhost:8096 |
+| Jellyfin analytics (Jellystat) | http://localhost:3000 |
 | Check downloads | http://localhost:8080 |
 | Transcode status | http://localhost:8265 |
 

@@ -407,6 +407,99 @@ fi
 
 echo ""
 
+# 7. Jellyfin plugins (Intro Skipper + TMDb Box Sets)
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    echo -e "${CYAN}[*] Installing Jellyfin plugins...${NC}"
+    echo ""
+
+    # Wait for Jellyfin API
+    JF_READY=false
+    for i in $(seq 1 30); do
+        jf_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 "http://localhost:8096/health" 2>/dev/null || true)
+        if [[ "$jf_status" == "200" ]]; then
+            JF_READY=true
+            break
+        fi
+        sleep 2
+    done
+
+    if [[ "$JF_READY" == true ]]; then
+        # Extract API key from Jellyfin system.xml
+        JF_XML="$MEDIA_DIR/config/jellyfin/config/system.xml"
+        JF_API_KEY=""
+        if [[ -f "$JF_XML" ]]; then
+            JF_API_KEY=$(grep -o '<ApiKey>[^<]*</ApiKey>' "$JF_XML" 2>/dev/null | sed 's/<[^>]*>//g' || true)
+        fi
+
+        if [[ -z "$JF_API_KEY" ]]; then
+            warn "Could not extract Jellyfin API key from system.xml"
+            warn "Generate one in Jellyfin > Administration > API Keys, then install plugins manually:"
+            warn "  - Intro Skipper: Administration > Plugins > Catalog > Intro Skipper > Install"
+            warn "  - TMDb Box Sets: Administration > Plugins > Catalog > TMDb Box Sets > Install"
+        else
+            # Fetch plugin catalog
+            PLUGIN_CATALOG=$(curl -fsS "http://localhost:8096/Packages" -H "X-Emby-Token: $JF_API_KEY" 2>/dev/null || true)
+
+            install_jf_plugin() {
+                local plugin_name="$1"
+                if [[ -z "$PLUGIN_CATALOG" ]]; then
+                    warn "$plugin_name: could not fetch plugin catalog"
+                    return 0
+                fi
+
+                # Extract the plugin GUID from catalog
+                local plugin_guid
+                plugin_guid=$(echo "$PLUGIN_CATALOG" | grep -o "\"name\":\"$plugin_name\"[^}]*\"guid\":\"[^\"]*\"" | grep -o '"guid":"[^"]*"' | cut -d'"' -f4 || true)
+
+                if [[ -z "$plugin_guid" ]]; then
+                    warn "$plugin_name: not found in plugin catalog"
+                    warn "  Install manually: Administration > Plugins > Catalog > $plugin_name"
+                    return 0
+                fi
+
+                # Get latest version
+                local install_result
+                install_result=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+                    "http://localhost:8096/Packages/Installed/$plugin_name" \
+                    -H "X-Emby-Token: $JF_API_KEY" 2>/dev/null || echo "000")
+
+                if [[ "$install_result" =~ ^2 ]]; then
+                    log "$plugin_name plugin installed"
+                else
+                    warn "$plugin_name: install returned HTTP $install_result"
+                    warn "  Install manually: Administration > Plugins > Catalog > $plugin_name"
+                fi
+            }
+
+            install_jf_plugin "Intro Skipper"
+            install_jf_plugin "TMDb Box Sets"
+
+            echo ""
+            if [[ "$NON_INTERACTIVE" == true ]]; then
+                warn "Restart Jellyfin to activate plugins: docker compose restart jellyfin"
+            else
+                echo -e "  ${YELLOW}Plugins require a Jellyfin restart to activate.${NC}"
+                read -p "  Restart Jellyfin now? [Y/n] " -r restart_jf
+                if [[ "$restart_jf" =~ ^[Nn]$ ]]; then
+                    warn "Skipped. Run 'docker compose restart jellyfin' when ready."
+                else
+                    if docker compose restart jellyfin >/dev/null 2>&1; then
+                        log "Jellyfin restarted"
+                    else
+                        warn "Restart failed. Run 'docker compose restart jellyfin' manually."
+                    fi
+                fi
+            fi
+        fi
+    else
+        warn "Jellyfin not ready after 60 seconds. Skipping plugin install."
+        warn "Install manually after Jellyfin is running:"
+        warn "  - Intro Skipper: Administration > Plugins > Catalog > Intro Skipper > Install"
+        warn "  - TMDb Box Sets: Administration > Plugins > Catalog > TMDb Box Sets > Install"
+    fi
+    echo ""
+fi
+
 # Print API keys for user to update config templates
 echo "=============================="
 echo -e "  ${GREEN}Configuration complete!${NC}"

@@ -51,7 +51,7 @@ echo ""
 echo "Containers:"
 CONTAINER_LIST="gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr tdarr unpackerr recyclarr kometa tautulli lidarr tidarr"
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
-    CONTAINER_LIST="$CONTAINER_LIST jellyfin"
+    CONTAINER_LIST="$CONTAINER_LIST jellyfin jellystat-db jellystat"
 fi
 for name in $CONTAINER_LIST; do
     state=$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null)
@@ -65,6 +65,8 @@ for name in $CONTAINER_LIST; do
         echo -e "  ${YELLOW}SKIP${NC}  $name (not installed)"
     elif [[ "$name" == "lidarr" || "$name" == "tidarr" ]] && [[ -z "$state" ]]; then
         echo -e "  ${YELLOW}SKIP${NC}  $name (music profile not enabled)"
+    elif [[ "$name" == "jellystat-db" || "$name" == "jellystat" ]] && [[ -z "$state" ]]; then
+        echo -e "  ${YELLOW}SKIP${NC}  $name (jellyfin profile not enabled)"
     else
         echo -e "  ${RED}FAIL${NC}  $name (${state:-not found})"
         ((FAIL++))
@@ -124,6 +126,37 @@ echo ""
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     echo "Jellyfin:"
     check_service "Jellyfin" "http://localhost:8096/health"
+
+    # Jellystat (only if containers exist)
+    jellystat_state=$(docker inspect -f '{{.State.Status}}' jellystat 2>/dev/null || true)
+    if [[ -n "$jellystat_state" ]]; then
+        echo ""
+        echo "Jellystat:"
+        if [[ "$jellystat_state" == "running" ]]; then
+            jellystat_http=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://localhost:3000" 2>/dev/null)
+            if [[ "$jellystat_http" =~ ^[23][0-9][0-9]$ ]]; then
+                echo -e "  ${GREEN}OK${NC}  Jellystat"
+                ((PASS++))
+            else
+                echo -e "  ${RED}FAIL${NC}  Jellystat (HTTP $jellystat_http)"
+                ((FAIL++))
+            fi
+        else
+            echo -e "  ${RED}FAIL${NC}  Jellystat ($jellystat_state)"
+            ((FAIL++))
+        fi
+
+        jellystat_db_health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' jellystat-db 2>/dev/null || true)
+        if [[ "$jellystat_db_health" == "healthy" ]]; then
+            echo -e "  ${GREEN}OK${NC}  Jellystat DB"
+            ((PASS++))
+        elif [[ -z "$jellystat_db_health" ]]; then
+            echo -e "  ${YELLOW}SKIP${NC}  Jellystat DB (not found)"
+        else
+            echo -e "  ${RED}FAIL${NC}  Jellystat DB (health: $jellystat_db_health)"
+            ((FAIL++))
+        fi
+    fi
 else
     echo "Plex:"
     plex_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://localhost:32400/web" 2>/dev/null)

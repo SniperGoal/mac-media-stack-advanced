@@ -69,17 +69,44 @@ echo "Creating folders..."
 mkdir -p "$MEDIA_DIR"/{config,Downloads,Movies,"TV Shows",logs,state,backups,tdarr-transcode-cache}
 mkdir -p "$MEDIA_DIR"/config/{qbittorrent,prowlarr,sonarr,radarr,bazarr,seerr,kometa,recyclarr}
 mkdir -p "$MEDIA_DIR"/config/tdarr/{server,configs,logs}
+mkdir -p "$MEDIA_DIR"/config/jellystat/{db,backup}
 echo -e "  ${GREEN}Done${NC}"
 echo ""
 
 # Create .env from example
+# Generate Jellystat secrets if not already set
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    source "$SCRIPT_DIR/.env"
+fi
+if [[ -z "${JELLYSTAT_JWT_SECRET:-}" ]]; then
+    JELLYSTAT_JWT_SECRET=$(openssl rand -hex 32)
+    echo "  Generated JELLYSTAT_JWT_SECRET"
+fi
+if [[ -z "${JELLYSTAT_DB_PASSWORD:-}" ]]; then
+    JELLYSTAT_DB_PASSWORD=$(openssl rand -hex 16)
+    echo "  Generated JELLYSTAT_DB_PASSWORD"
+fi
+
 if [[ -f "$SCRIPT_DIR/.env" ]]; then
     echo -e "${YELLOW}Note:${NC} .env already exists. Skipping creation."
+    # Write Jellystat secrets if missing from existing .env
+    if ! grep -q "^JELLYSTAT_JWT_SECRET=" "$SCRIPT_DIR/.env" 2>/dev/null; then
+        printf '\nJELLYSTAT_JWT_SECRET=%s\n' "$JELLYSTAT_JWT_SECRET" >> "$SCRIPT_DIR/.env"
+    elif grep -q "^JELLYSTAT_JWT_SECRET=$" "$SCRIPT_DIR/.env" 2>/dev/null; then
+        sed -i '' "s|^JELLYSTAT_JWT_SECRET=$|JELLYSTAT_JWT_SECRET=$JELLYSTAT_JWT_SECRET|" "$SCRIPT_DIR/.env"
+    fi
+    if ! grep -q "^JELLYSTAT_DB_PASSWORD=" "$SCRIPT_DIR/.env" 2>/dev/null; then
+        printf 'JELLYSTAT_DB_PASSWORD=%s\n' "$JELLYSTAT_DB_PASSWORD" >> "$SCRIPT_DIR/.env"
+    elif grep -q "^JELLYSTAT_DB_PASSWORD=$" "$SCRIPT_DIR/.env" 2>/dev/null; then
+        sed -i '' "s|^JELLYSTAT_DB_PASSWORD=$|JELLYSTAT_DB_PASSWORD=$JELLYSTAT_DB_PASSWORD|" "$SCRIPT_DIR/.env"
+    fi
 else
     echo "Creating .env file..."
     sed "s|/Users/YOURUSERNAME/Media|$MEDIA_DIR|g" "$SCRIPT_DIR/.env.example" \
         | sed "s|PUID=501|PUID=$USER_PUID|g" \
         | sed "s|PGID=20|PGID=$USER_PGID|g" \
+        | sed "s|^JELLYSTAT_JWT_SECRET=$|JELLYSTAT_JWT_SECRET=$JELLYSTAT_JWT_SECRET|g" \
+        | sed "s|^JELLYSTAT_DB_PASSWORD=$|JELLYSTAT_DB_PASSWORD=$JELLYSTAT_DB_PASSWORD|g" \
         > "$SCRIPT_DIR/.env"
     chmod 600 "$SCRIPT_DIR/.env"
     echo -e "  ${GREEN}Done${NC}"

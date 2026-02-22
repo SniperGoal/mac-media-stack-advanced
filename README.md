@@ -52,6 +52,9 @@ New to self-hosted media? Start with the [basic version](https://github.com/liam
 | **Kometa** | Plex metadata automation (franchise collections, resolution overlays, RT ratings) |
 | **Unpackerr** | Auto-extracts RAR'd downloads for Radarr/Sonarr |
 | **Jellyfin** | Free, open-source media server (alternative to Plex, runs in Docker) |
+| **Intro Skipper** | Jellyfin plugin: auto-detects intros and adds a "Skip Intro" button on TV shows |
+| **TMDb Box Sets** | Jellyfin plugin: auto-creates franchise collections from TMDb data (Jellyfin's Kometa) |
+| **Jellystat** | Jellyfin analytics dashboard (like Tautulli for Plex: watch history, user stats, library insights) |
 
 ## Choosing Your Media Server
 
@@ -61,10 +64,35 @@ New to self-hosted media? Start with the [basic version](https://github.com/liam
 | **Setup** | Install macOS app, runs natively | Runs in Docker, no app install |
 | **Remote access** | Built-in (Plex account) | Manual (reverse proxy) |
 | **Kometa support** | Yes (metadata automation) | No (use Jellyfin's built-in collections) |
-| **Franchise sort** | Yes (via franchise-sort.py) | No (use Jellyfin Collections plugin) |
+| **Franchise sort** | Yes (via franchise-sort.py) | No (TMDb Box Sets plugin auto-creates collections) |
+| **Analytics** | Tautulli (external) | Jellystat (included, Docker) |
+| **Intro skip** | Plex Pass feature | Intro Skipper plugin (free, auto-installed) |
 | **Client apps** | Plex apps on all platforms | Jellyfin apps + browser |
 
 Default is **Plex**. To use Jellyfin, pass `--jellyfin` to the bootstrap command.
+
+## Jellyfin-Specific Features
+
+When running with `MEDIA_SERVER=jellyfin`, the stack includes these extras that close the gap with Plex Pass users:
+
+| Feature | What It Does | Plex Equivalent |
+|---------|-------------|-----------------|
+| **Intro Skipper** | Detects TV show intros via audio fingerprinting, adds a "Skip Intro" button | Plex Pass intro skip |
+| **TMDb Box Sets** | Auto-creates franchise collections (Marvel, Star Wars, etc.) from TMDb data | Kometa collections |
+| **Jellystat** | Watch history, user activity, library stats dashboard at `http://localhost:3000` | Tautulli |
+
+Intro Skipper and TMDb Box Sets are auto-installed as Jellyfin plugins by `configure.sh`. Jellystat runs as a separate Docker service behind the `jellyfin` profile.
+
+### Jellystat Setup
+
+After the stack is running:
+
+1. Open `http://localhost:3000`
+2. Create an admin account
+3. Connect to your Jellyfin server: `http://jellyfin:8096`
+4. Enter your Jellyfin API key (Administration > API Keys)
+
+Jellystat will start tracking watch history, user activity, and library statistics automatically.
 
 ## Optional: Music (Lidarr + Tidarr)
 
@@ -86,7 +114,7 @@ Then open Tidarr at `http://localhost:8484` to authenticate with your Tidal acco
 
 | Script | Schedule | What It Does |
 |--------|----------|-------------|
-| Auto-healer | Hourly | Restarts VPN/containers if they go down (includes Jellyfin when active) |
+| Auto-healer | Hourly | Restarts VPN/containers if they go down (includes Jellyfin + Jellystat when active) |
 | Nightly backup | Daily | Backs up all configs and databases (14-day retention) |
 | Download watchdog | Every 15 min | Detects stalled/slow torrents, auto-fixes or swaps them |
 | Kometa | Every 4 hours | Updates Plex collections and metadata overlays |

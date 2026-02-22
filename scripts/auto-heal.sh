@@ -61,7 +61,7 @@ source "$PROJECT_DIR/.env" 2>/dev/null || true
 # Check containers
 CONTAINERS="gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr tdarr unpackerr recyclarr lidarr tidarr"
 if [[ "${MEDIA_SERVER:-plex}" == "jellyfin" ]]; then
-    CONTAINERS="$CONTAINERS jellyfin"
+    CONTAINERS="$CONTAINERS jellyfin jellystat-db jellystat"
 fi
 for name in $CONTAINERS; do
     state=$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null)
