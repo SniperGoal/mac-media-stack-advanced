@@ -68,6 +68,8 @@ bash scripts/doctor.sh
 4. Start and configure:
 ```bash
 docker compose up -d
+# If using Jellyfin:
+docker compose --profile jellyfin up -d
 bash scripts/configure.sh
 bash scripts/install-launchd-jobs.sh
 ```
@@ -94,6 +96,8 @@ docker compose down
 
 cd ~/mac-media-stack
 docker compose up -d
+# If your basic stack uses Jellyfin:
+docker compose --profile jellyfin up -d
 ```
 
 If you used the one-shot script, backup snapshots are saved under:

@@ -22,6 +22,7 @@ Tested lock snapshot:
 | kometa | `kometateam/kometa@sha256:46fc4bdd6f64dbd92655c6495d9f9d1a745845bd60fa13a7283755db48de8bc0` |
 | qbittorrent | `lscr.io/linuxserver/qbittorrent@sha256:065792d2b11f0facff340210fc1cf13623b029a94ecdf08b02d06d922205f618` |
 | seerr | `ghcr.io/seerr-team/seerr@sha256:1b5fc1ea825631d9d165364472663b817a4c58ef6aa1013f58d82c1570d7c866` |
+| jellyfin (optional) | `lscr.io/linuxserver/jellyfin@sha256:4ee07757abcaa0b74fbc74179392311dc2874c03b0bef04bc2d79e9e1a875793` |
 | tdarr | `ghcr.io/haveagitgat/tdarr@sha256:20a5656c4af4854e1877046294f77113f949d27e35940a9a65f231423d063207` |
 | tidarr (music profile) | `cstaelen/tidarr@sha256:79a2c62aed04dbe9770272443192eae145f26bdc2d188e665b13ab763341206c` |
 

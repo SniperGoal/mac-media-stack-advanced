@@ -9,8 +9,8 @@ COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
 LOCK_FILE="$SCRIPT_DIR/IMAGE_LOCK.md"
 ENV_FILE="$SCRIPT_DIR/.env"
 
-PROFILES=(autoupdate music)
-OPTIONAL_SERVICES=(watchtower)
+PROFILES=(autoupdate music jellyfin)
+OPTIONAL_SERVICES=(watchtower jellyfin)
 MUSIC_SERVICES=(lidarr tidarr)
 
 for cmd in docker awk sed mktemp; do

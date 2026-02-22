@@ -318,6 +318,8 @@ bash scripts/vpn-mode.sh nord      # switch to Nord
 **Restart everything:**
 ```bash
 docker compose down && docker compose up -d
+# If using Jellyfin:
+docker compose down && docker compose --profile jellyfin up -d
 ```
 
 **Uninstall automation jobs:**

@@ -213,6 +213,7 @@ copy_env_key_if_set "$BASIC_ENV" "$ADVANCED_ENV" "PUID"
 copy_env_key_if_set "$BASIC_ENV" "$ADVANCED_ENV" "PGID"
 copy_env_key_if_set "$BASIC_ENV" "$ADVANCED_ENV" "TIMEZONE"
 copy_env_key_if_set "$BASIC_ENV" "$ADVANCED_ENV" "SEERR_BIND_IP"
+copy_env_key_if_set "$BASIC_ENV" "$ADVANCED_ENV" "MEDIA_SERVER"
 
 wg_priv="$(env_get "$BASIC_ENV" "WIREGUARD_PRIVATE_KEY")"
 wg_addr="$(env_get "$BASIC_ENV" "WIREGUARD_ADDRESSES")"
@@ -225,6 +226,12 @@ fi
 chmod 600 "$ADVANCED_ENV"
 log "Advanced .env updated from basic settings"
 
+MEDIA_SERVER="$(env_get "$ADVANCED_ENV" "MEDIA_SERVER")"
+MEDIA_SERVER="${MEDIA_SERVER:-plex}"
+
+BASIC_MEDIA_SERVER="$(env_get "$BASIC_ENV" "MEDIA_SERVER")"
+BASIC_MEDIA_SERVER="${BASIC_MEDIA_SERVER:-plex}"
+
 info "Running advanced preflight checks"
 (cd "$ADVANCED_DIR" && bash scripts/doctor.sh --media-dir "$MEDIA_DIR")
 
@@ -233,7 +240,11 @@ info "Stopping basic stack"
 log "Basic stack stopped"
 
 info "Starting advanced stack"
-(cd "$ADVANCED_DIR" && docker compose up -d)
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    (cd "$ADVANCED_DIR" && docker compose --profile jellyfin up -d)
+else
+    (cd "$ADVANCED_DIR" && docker compose up -d)
+fi
 log "Advanced stack started"
 
 info "Running auto-configuration"
@@ -269,12 +280,20 @@ echo ""
 echo "Backup path: $BACKUP_DIR"
 echo ""
 echo "Remaining manual steps:"
-echo "  1. Set Kometa keys in $MEDIA_DIR/config/kometa/config.yml"
-echo "     - PLEX_TOKEN"
-echo "     - TMDB API key"
-echo "  2. Configure Tdarr at http://localhost:8265"
+if [[ "$MEDIA_SERVER" == "plex" ]]; then
+    echo "  1. Set Kometa keys in $MEDIA_DIR/config/kometa/config.yml"
+    echo "     - PLEX_TOKEN"
+    echo "     - TMDB API key"
+    echo "  2. Configure Tdarr at http://localhost:8265"
+else
+    echo "  1. Configure Tdarr at http://localhost:8265"
+fi
 echo ""
 echo "Rollback (if needed):"
 echo "  cd $ADVANCED_DIR && docker compose down"
-echo "  cd $BASIC_DIR && docker compose up -d"
+if [[ "$BASIC_MEDIA_SERVER" == "jellyfin" ]]; then
+    echo "  cd $BASIC_DIR && docker compose --profile jellyfin up -d"
+else
+    echo "  cd $BASIC_DIR && docker compose up -d"
+fi
 echo ""

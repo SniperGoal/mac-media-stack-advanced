@@ -158,6 +158,8 @@ bash scripts/setup.sh            # or: bash scripts/setup.sh --media-dir /Volume
 # edit .env with VPN keys
 bash scripts/doctor.sh           # preflight validation before first boot
 docker compose up -d
+# if MEDIA_SERVER=jellyfin in .env:
+docker compose --profile jellyfin up -d
 docker compose --profile autoupdate up -d watchtower  # optional auto-updates
 bash scripts/configure.sh
 bash scripts/install-launchd-jobs.sh
