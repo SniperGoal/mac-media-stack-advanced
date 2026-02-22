@@ -1,3 +1,4 @@
+# PLEX ONLY - Jellyfin users do not need this file.
 # Kometa (Plex Meta Manager) configuration
 # Copy to ${MEDIA_DIR}/config/kometa/config.yml after first boot
 # Replace YOUR_PLEX_TOKEN and YOUR_TMDB_API_KEY with actual values

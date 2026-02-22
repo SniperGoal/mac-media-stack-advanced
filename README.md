@@ -13,6 +13,7 @@
   <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" />
   <img src="https://img.shields.io/badge/OrbStack-000000?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0id2hpdGUiLz48L3N2Zz4=&logoColor=white" />
   <img src="https://img.shields.io/badge/Plex-EBAF00?style=flat-square&logo=plex&logoColor=white" />
+  <img src="https://img.shields.io/badge/Jellyfin-00A4DC?style=flat-square&logo=jellyfin&logoColor=white" />
   <img src="https://img.shields.io/badge/Sonarr-00CCFF?style=flat-square&logo=sonarr&logoColor=white" />
   <img src="https://img.shields.io/badge/Radarr-FFC230?style=flat-square&logo=radarr&logoColor=black" />
   <img src="https://img.shields.io/badge/Lidarr-00CC66?style=flat-square&logo=lidarr&logoColor=white" />
@@ -50,6 +51,20 @@ New to self-hosted media? Start with the [basic version](https://github.com/liam
 | **Recyclarr** | TRaSH Guides quality profiles (penalizes bad release groups, scene releases) |
 | **Kometa** | Plex metadata automation (franchise collections, resolution overlays, RT ratings) |
 | **Unpackerr** | Auto-extracts RAR'd downloads for Radarr/Sonarr |
+| **Jellyfin** | Free, open-source media server (alternative to Plex, runs in Docker) |
+
+## Choosing Your Media Server
+
+| | Plex | Jellyfin |
+|---|------|----------|
+| **Cost** | Free tier + optional Plex Pass | Completely free and open-source |
+| **Setup** | Install macOS app, runs natively | Runs in Docker, no app install |
+| **Remote access** | Built-in (Plex account) | Manual (reverse proxy) |
+| **Kometa support** | Yes (metadata automation) | No (use Jellyfin's built-in collections) |
+| **Franchise sort** | Yes (via franchise-sort.py) | No (use Jellyfin Collections plugin) |
+| **Client apps** | Plex apps on all platforms | Jellyfin apps + browser |
+
+Default is **Plex**. To use Jellyfin, pass `--jellyfin` to the bootstrap command.
 
 ## Optional: Music (Lidarr + Tidarr)
 
@@ -71,12 +86,12 @@ Then open Tidarr at `http://localhost:8484` to authenticate with your Tidal acco
 
 | Script | Schedule | What It Does |
 |--------|----------|-------------|
-| Auto-healer | Hourly | Restarts VPN/containers if they go down |
+| Auto-healer | Hourly | Restarts VPN/containers if they go down (includes Jellyfin when active) |
 | Nightly backup | Daily | Backs up all configs and databases (14-day retention) |
 | Download watchdog | Every 15 min | Detects stalled/slow torrents, auto-fixes or swaps them |
 | Kometa | Every 4 hours | Updates Plex collections and metadata overlays |
 | Log prune | Daily | Removes log files older than 30 days |
-| Franchise sort | Optional/manual | Sorts franchise collection movies by release date in Plex |
+| Franchise sort | Optional/manual | Sorts franchise collection movies by release date in Plex (Plex only) |
 | VPN failover | Every 2 min (optional) | Auto-switches between ProtonVPN and NordVPN on sustained failure |
 | Watchtower | Daily at 04:00 (optional) | Auto-pulls latest container images and recreates updated services |
 
@@ -98,7 +113,7 @@ Set these in `.env` or your shell environment if you need to customize watchdog 
 
 ## One-Command Install
 
-Requires OrbStack (or Docker Desktop) and Plex already installed. Handles everything else.
+Requires OrbStack (or Docker Desktop) and either Plex installed or the `--jellyfin` flag. Handles everything else.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/liamvibecodes/mac-media-stack-advanced/main/bootstrap.sh | bash
@@ -108,6 +123,12 @@ Optional flags when running from a local clone:
 
 ```bash
 bash bootstrap.sh --media-dir /Volumes/T9/Media --install-dir ~/mac-media-stack-advanced --non-interactive
+```
+
+To use Jellyfin instead of Plex:
+
+```bash
+bash bootstrap.sh --jellyfin
 ```
 
 ## Upgrading From Basic
@@ -161,7 +182,7 @@ By default, Seerr is bound to `127.0.0.1` for safer local-only access. Set `SEER
 <img src="flow.gif" alt="Request to streaming flow" width="700" />
 
 ```
-Seerr (request) -> Radarr/Sonarr -> Prowlarr (search) -> qBittorrent (via VPN) -> Plex (watch)
+Seerr (request) -> Radarr/Sonarr -> Prowlarr (search) -> qBittorrent (via VPN) -> Plex or Jellyfin (watch)
                                                            |
                                      Unpackerr (extract) --+
                                      Bazarr (subtitles) ----+
@@ -201,9 +222,9 @@ bash scripts/vpn-mode.sh nord
 | `scripts/run-kometa.sh` | Trigger Kometa metadata run |
 | `scripts/setup-music.sh` | Creates music directories and Tidarr config (optional) |
 | `scripts/log-prune.sh` | Prunes old log files (30-day default retention) |
-| `scripts/franchise-sort.py` | Auto-sorts franchise collections in Plex by release date |
+| `scripts/franchise-sort.py` | Auto-sorts franchise collections in Plex by release date (Plex only) |
 | `scripts/music-cleanup.py` | Fixes music metadata and folder naming (optional, music profile) |
-| `scripts/archive-media.sh` | Move old/watched media to an external archive drive |
+| `scripts/archive-media.sh` | Move old/watched media to an external archive drive (supports Plex and Jellyfin) |
 | `scripts/refresh-image-lock.sh` | Refreshes pinned image digests and regenerates IMAGE_LOCK.md |
 
 ## Config Templates
@@ -309,6 +330,9 @@ bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archiv
 
 # Only archive stuff you've already watched (uses Plex watch state)
 bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archive --only-watched
+
+# Jellyfin users: pass your API key for watched-state filtering
+bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archive --only-watched --jellyfin-api-key YOUR_KEY
 ```
 
 **Protecting favorites:** `scripts/setup.sh` creates `<MEDIA_DIR>/config/archive-exceptions.txt` for you (default `<MEDIA_DIR>` is `~/Media`). Add one title per line and anything listed won't be archived regardless of age or size. See `configs/archive-exceptions.txt.example` for the format.

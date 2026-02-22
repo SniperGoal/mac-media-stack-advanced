@@ -31,9 +31,9 @@ Already running the basic stack and want an in-place migration? Use [UPGRADE.md]
 - A Mac (any recent macOS)
 - At least 50GB free disk space (media libraries will need more)
 - [OrbStack](https://orbstack.dev) (recommended) or [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
-- Plex installed and signed in
+- **Plex** installed and signed in, OR use **Jellyfin** (runs in Docker, no install needed)
 - ProtonVPN WireGuard credentials
-- A free TMDB API key (https://www.themoviedb.org/settings/api)
+- A free TMDB API key (https://www.themoviedb.org/settings/api) (Plex/Kometa only)
 
 > **Why OrbStack?** It starts in ~2 seconds (vs 30s for Docker Desktop), uses ~1GB RAM (vs 4GB), and has 2-10x faster file I/O. It's a drop-in replacement that runs the same Docker commands. Docker Desktop works fine too.
 
@@ -69,6 +69,18 @@ Or download from https://orbstack.dev. Open it once after installing.
 Both options use the same `docker` and `docker compose` commands. Everything in this guide works identically with either one.
 
 If you use a custom media location (`MEDIA_DIR` in `.env`), replace any `~/Media` path below with that value.
+
+---
+
+## Choose Your Media Server
+
+This stack supports two media servers. Choose one:
+
+**Plex (default):** Runs natively on macOS. Requires the Plex app installed. Supports Kometa metadata automation and franchise sorting.
+
+**Jellyfin:** Free and open-source. Runs entirely in Docker. No app install needed. Kometa and franchise-sort are skipped automatically (Jellyfin has built-in collection management).
+
+To use Jellyfin, pass `--jellyfin` to the bootstrap command, or set `MEDIA_SERVER=jellyfin` in your `.env` file.
 
 ---
 
@@ -110,6 +122,12 @@ Then start the stack:
 ```bash
 docker compose up -d
 bash scripts/health-check.sh
+```
+
+If using Jellyfin, start with the profile enabled:
+
+```bash
+docker compose --profile jellyfin up -d
 ```
 
 Wait for all containers to show OK. First pull takes 3-5 GB.
@@ -166,16 +184,27 @@ It also writes credentials/API keys to `<MEDIA_DIR>/state/first-run-credentials.
 
 ---
 
-## Step 6: Set Up Plex Libraries
+## Step 6: Set Up Media Server Libraries
+
+### Plex
 
 1. Open http://localhost:32400/web
 2. Settings > Libraries > Add Library
 3. Add Movies (your home folder > Media > Movies)
 4. Add TV Shows (your home folder > Media > TV Shows)
 
+### Jellyfin
+
+1. Open http://localhost:8096
+2. Complete the setup wizard
+3. Add libraries: Movies = `/data/movies`, TV Shows = `/data/tvshows`
+4. Generate an API key (Administration > API Keys) if you plan to use `archive-media.sh --only-watched`
+
 ---
 
 ## Step 7: Configure Advanced Services
+
+> **Jellyfin users:** Skip the Kometa section below. Kometa is Plex-only and is automatically skipped when `MEDIA_SERVER=jellyfin`. Franchise sorting is also Plex-only; Jellyfin has built-in collection management via the Collections plugin.
 
 ### Recyclarr (TRaSH quality profiles)
 
@@ -255,7 +284,8 @@ bash scripts/vpn-mode.sh status
 | What | Where |
 |------|-------|
 | Browse and request | http://localhost:5055 |
-| Watch | http://localhost:32400/web |
+| Watch (Plex) | http://localhost:32400/web |
+| Watch (Jellyfin) | http://localhost:8096 |
 | Check downloads | http://localhost:8080 |
 | Transcode status | http://localhost:8265 |
 

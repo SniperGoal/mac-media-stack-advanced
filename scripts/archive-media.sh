@@ -20,6 +20,8 @@ PLEX_URL="http://localhost:32400"
 PLEX_TOKEN=""
 PLEX_MOVIES_SECTION="1"
 PLEX_TV_SECTION="2"
+JELLYFIN_URL="http://localhost:8096"
+JELLYFIN_API_KEY=""
 WATCHED_TMP_DIR=""
 EXCEPTIONS_FILE=""
 RSYNC_SUPPORTS_PROTECT_ARGS=0
@@ -64,6 +66,8 @@ Options:
   --plex-token TOKEN      Plex auth token (auto-detected from Kometa config if not set)
   --plex-movies-section N Plex movies library section ID (default: 1)
   --plex-tv-section N     Plex TV library section ID (default: 2)
+  --jellyfin-url URL      Jellyfin server URL (default: http://localhost:8096)
+  --jellyfin-api-key KEY  Jellyfin API key (Administration > API Keys)
   -h, --help              Show this help
 
 Examples:
@@ -162,6 +166,8 @@ parse_args() {
             --plex-token) PLEX_TOKEN="$(require_arg --plex-token "${2:-}")"; shift 2 ;;
             --plex-movies-section) PLEX_MOVIES_SECTION="$(require_arg --plex-movies-section "${2:-}")"; shift 2 ;;
             --plex-tv-section) PLEX_TV_SECTION="$(require_arg --plex-tv-section "${2:-}")"; shift 2 ;;
+            --jellyfin-url) JELLYFIN_URL="$(require_arg --jellyfin-url "${2:-}")"; shift 2 ;;
+            --jellyfin-api-key) JELLYFIN_API_KEY="$(require_arg --jellyfin-api-key "${2:-}")"; shift 2 ;;
             -h|--help) usage; exit 0 ;;
             *) echo -e "${RED}ERR${NC} Unknown argument: $1" >&2; usage; exit 1 ;;
         esac
@@ -331,18 +337,133 @@ for show_root, total in sorted(total_ep.items()):
 PY
 }
 
+load_jellyfin_api_key() {
+    if [[ -n "$JELLYFIN_API_KEY" ]]; then
+        return
+    fi
+    echo -e "${RED}ERR${NC} --only-watched with Jellyfin requires --jellyfin-api-key" >&2
+    echo "  Generate one in Jellyfin: Administration > API Keys" >&2
+    exit 1
+}
+
+get_jellyfin_user_id() {
+    curl -fsS -H "X-Emby-Token: $JELLYFIN_API_KEY" "$JELLYFIN_URL/Users" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['Id'])" 2>/dev/null
+}
+
+build_watched_file_movies_jellyfin() {
+    local src_root="$1"
+    local out_file="$2"
+    local user_id
+    user_id="$(get_jellyfin_user_id)"
+
+    python3 - "$JELLYFIN_URL" "$JELLYFIN_API_KEY" "$user_id" "$src_root" <<'PY' > "$out_file"
+import json, os, sys, urllib.request
+
+base_url, api_key, user_id, library_root = sys.argv[1:]
+library_root = os.path.normpath(library_root)
+start = 0
+limit = 200
+watched_dirs = set()
+
+while True:
+    url = f"{base_url.rstrip('/')}/Users/{user_id}/Items?IsPlayed=true&IncludeItemTypes=Movie&Recursive=true&StartIndex={start}&Limit={limit}&Fields=Path"
+    req = urllib.request.Request(url, headers={"X-Emby-Token": api_key})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        data = json.load(resp)
+    items = data.get("Items", [])
+    for item in items:
+        path = item.get("Path", "")
+        if not path:
+            continue
+        normalized = os.path.normpath(path)
+        prefix = library_root + os.sep
+        if normalized.startswith(prefix):
+            watched_dirs.add(os.path.dirname(normalized))
+    start += len(items)
+    if len(items) == 0 or start >= data.get("TotalRecordCount", 0):
+        break
+
+for path in sorted(watched_dirs):
+    print(path)
+PY
+}
+
+build_watched_file_tv_jellyfin() {
+    local src_root="$1"
+    local out_file="$2"
+    local user_id
+    user_id="$(get_jellyfin_user_id)"
+
+    python3 - "$JELLYFIN_URL" "$JELLYFIN_API_KEY" "$user_id" "$src_root" <<'PY' > "$out_file"
+import json, os, sys, urllib.request
+
+base_url, api_key, user_id, library_root = sys.argv[1:]
+library_root = os.path.normpath(library_root)
+start = 0
+limit = 200
+total_ep = {}
+watched_ep = {}
+
+while True:
+    url = f"{base_url.rstrip('/')}/Users/{user_id}/Items?IncludeItemTypes=Episode&Recursive=true&StartIndex={start}&Limit={limit}&Fields=Path"
+    req = urllib.request.Request(url, headers={"X-Emby-Token": api_key})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        data = json.load(resp)
+    items = data.get("Items", [])
+    for item in items:
+        path = item.get("Path", "")
+        if not path:
+            continue
+        normalized = os.path.normpath(path)
+        prefix = library_root + os.sep
+        if not normalized.startswith(prefix):
+            continue
+        rel = normalized[len(prefix):]
+        show_name = rel.split(os.sep, 1)[0]
+        show_root = os.path.join(library_root, show_name)
+        total_ep[show_root] = total_ep.get(show_root, 0) + 1
+        played = item.get("UserData", {}).get("Played", False)
+        if played:
+            watched_ep[show_root] = watched_ep.get(show_root, 0) + 1
+    start += len(items)
+    if len(items) == 0 or start >= data.get("TotalRecordCount", 0):
+        break
+
+for show_root, total in sorted(total_ep.items()):
+    if total > 0 and watched_ep.get(show_root, 0) >= total:
+        print(show_root)
+PY
+}
+
 prepare_watched_files() {
     WATCHED_TMP_DIR="$(mktemp -d)"
 
-    if [[ "$TYPE" == "movies" || "$TYPE" == "both" ]]; then
-        build_watched_file_movies "$SOURCE_ROOT/Movies" "$PLEX_MOVIES_SECTION" "$WATCHED_TMP_DIR/movies.txt"
+    # shellcheck disable=SC1091
+    source "$PROJECT_DIR/.env" 2>/dev/null || true
+
+    if [[ "${MEDIA_SERVER:-plex}" == "jellyfin" ]]; then
+        load_jellyfin_api_key
+        if [[ "$TYPE" == "movies" || "$TYPE" == "both" ]]; then
+            build_watched_file_movies_jellyfin "$SOURCE_ROOT/Movies" "$WATCHED_TMP_DIR/movies.txt"
+        else
+            : > "$WATCHED_TMP_DIR/movies.txt"
+        fi
+        if [[ "$TYPE" == "tv" || "$TYPE" == "both" ]]; then
+            build_watched_file_tv_jellyfin "$SOURCE_ROOT/TV Shows" "$WATCHED_TMP_DIR/tv.txt"
+        else
+            : > "$WATCHED_TMP_DIR/tv.txt"
+        fi
     else
-        : > "$WATCHED_TMP_DIR/movies.txt"
-    fi
-    if [[ "$TYPE" == "tv" || "$TYPE" == "both" ]]; then
-        build_watched_file_tv "$SOURCE_ROOT/TV Shows" "$PLEX_TV_SECTION" "$WATCHED_TMP_DIR/tv.txt"
-    else
-        : > "$WATCHED_TMP_DIR/tv.txt"
+        if [[ "$TYPE" == "movies" || "$TYPE" == "both" ]]; then
+            build_watched_file_movies "$SOURCE_ROOT/Movies" "$PLEX_MOVIES_SECTION" "$WATCHED_TMP_DIR/movies.txt"
+        else
+            : > "$WATCHED_TMP_DIR/movies.txt"
+        fi
+        if [[ "$TYPE" == "tv" || "$TYPE" == "both" ]]; then
+            build_watched_file_tv "$SOURCE_ROOT/TV Shows" "$PLEX_TV_SECTION" "$WATCHED_TMP_DIR/tv.txt"
+        else
+            : > "$WATCHED_TMP_DIR/tv.txt"
+        fi
     fi
 }
 
@@ -496,10 +617,14 @@ main() {
         if ! command -v python3 >/dev/null 2>&1; then
             echo -e "${RED}ERR${NC} python3 is required for --only-watched" >&2; exit 1
         fi
-        load_plex_token_default
-        if [[ -z "$PLEX_TOKEN" ]]; then
-            echo -e "${RED}ERR${NC} --only-watched requires --plex-token or a token in $SOURCE_ROOT/config/kometa/config.yml" >&2
-            exit 1
+        # shellcheck disable=SC1091
+        source "$PROJECT_DIR/.env" 2>/dev/null || true
+        if [[ "${MEDIA_SERVER:-plex}" != "jellyfin" ]]; then
+            load_plex_token_default
+            if [[ -z "$PLEX_TOKEN" ]]; then
+                echo -e "${RED}ERR${NC} --only-watched requires --plex-token or a token in $SOURCE_ROOT/config/kometa/config.yml" >&2
+                exit 1
+            fi
         fi
         prepare_watched_files
         trap cleanup_tmp_dir EXIT

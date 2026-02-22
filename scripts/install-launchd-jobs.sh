@@ -102,8 +102,11 @@ install_plist "backup" 86400 "$SCRIPT_DIR/backup.sh"
 install_plist "log-prune" 86400 "$SCRIPT_DIR/log-prune.sh"
 install_plist "download-watchdog" 900 "$SCRIPT_DIR/download-watchdog.py" "false"
 
-# Kometa one-shot (every 4 hours = 14400s)
-install_plist "kometa" 14400 "$SCRIPT_DIR/run-kometa.sh"
+# Kometa one-shot (every 4 hours = 14400s) — Plex only
+source "$PROJECT_DIR/.env" 2>/dev/null || true
+if [[ "${MEDIA_SERVER:-plex}" == "plex" ]]; then
+    install_plist "kometa" 14400 "$SCRIPT_DIR/run-kometa.sh"
+fi
 
 echo ""
 echo -e "${YELLOW}Optional:${NC} VPN failover (requires NordVPN as backup)"

@@ -25,6 +25,12 @@ import os
 import sys
 from pathlib import Path
 
+MEDIA_SERVER = os.environ.get("MEDIA_SERVER", "plex")
+if MEDIA_SERVER != "plex":
+    print("franchise-sort is Plex-only. Jellyfin has built-in collection management.")
+    sys.exit(0)
+
+
 def load_default_media_log_dir() -> str:
     env_media = os.getenv("MEDIA_DIR")
     if env_media:

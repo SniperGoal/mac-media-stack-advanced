@@ -11,6 +11,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib/runtime.sh
 source "$SCRIPT_DIR/scripts/lib/runtime.sh"
 
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/.env" 2>/dev/null || true
+MEDIA_SERVER="${MEDIA_SERVER:-plex}"
+
 PASS=0
 FAIL=0
 
@@ -45,7 +49,11 @@ fi
 echo ""
 
 echo "Containers:"
-for name in gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr tdarr unpackerr recyclarr kometa tautulli lidarr tidarr; do
+CONTAINER_LIST="gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr tdarr unpackerr recyclarr kometa tautulli lidarr tidarr"
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    CONTAINER_LIST="$CONTAINER_LIST jellyfin"
+fi
+for name in $CONTAINER_LIST; do
     state=$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null)
     if [[ "$state" == "running" ]]; then
         echo -e "  ${GREEN}OK${NC}  $name"
@@ -113,13 +121,18 @@ else
 fi
 
 echo ""
-echo "Plex:"
-plex_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://localhost:32400/web" 2>/dev/null)
-if [[ "$plex_status" =~ ^(200|301|302)$ ]]; then
-    echo -e "  ${GREEN}OK${NC}  Plex"
-    ((PASS++))
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    echo "Jellyfin:"
+    check_service "Jellyfin" "http://localhost:8096/health"
 else
-    echo -e "  ${YELLOW}SKIP${NC}  Plex not detected"
+    echo "Plex:"
+    plex_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://localhost:32400/web" 2>/dev/null)
+    if [[ "$plex_status" =~ ^(200|301|302)$ ]]; then
+        echo -e "  ${GREEN}OK${NC}  Plex"
+        ((PASS++))
+    else
+        echo -e "  ${YELLOW}SKIP${NC}  Plex not detected"
+    fi
 fi
 
 echo ""

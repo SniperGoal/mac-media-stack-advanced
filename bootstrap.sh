@@ -14,6 +14,7 @@ BOOTSTRAP_DIR="$(cd "$(dirname "$0")" && pwd)"
 MEDIA_DIR="$HOME/Media"
 INSTALL_DIR="$HOME/mac-media-stack-advanced"
 NON_INTERACTIVE=false
+MEDIA_SERVER=plex
 
 usage() {
     cat <<EOF
@@ -22,6 +23,7 @@ Usage: bash bootstrap.sh [OPTIONS]
 Options:
   --media-dir DIR       Media root path (default: ~/Media)
   --install-dir DIR     Repo install directory (default: ~/mac-media-stack-advanced)
+  --jellyfin            Use Jellyfin instead of Plex as the media server
   --non-interactive     Skip interactive prompts (manual Seerr wiring required)
   --help                Show this help message
 
@@ -49,6 +51,10 @@ while [[ $# -gt 0 ]]; do
             fi
             INSTALL_DIR="$2"
             shift 2
+            ;;
+        --jellyfin)
+            MEDIA_SERVER=jellyfin
+            shift
             ;;
         --non-interactive)
             NON_INTERACTIVE=true
@@ -154,12 +160,16 @@ fi
 RUNTIME=$(detect_running_runtime)
 echo -e "${GREEN}OK${NC}  $RUNTIME is running"
 
-# Check Plex
-if [[ -d "/Applications/Plex Media Server.app" ]] || pgrep -x "Plex Media Server" &>/dev/null; then
-    echo -e "${GREEN}OK${NC}  Plex detected"
+# Check media server
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    echo -e "${GREEN}OK${NC}  Media server: Jellyfin (will run in Docker)"
 else
-    echo -e "${YELLOW}WARN${NC}  Plex not detected. Install from https://www.plex.tv/media-server-downloads/"
-    echo "  You can continue and install Plex later."
+    if [[ -d "/Applications/Plex Media Server.app" ]] || pgrep -x "Plex Media Server" &>/dev/null; then
+        echo -e "${GREEN}OK${NC}  Plex detected"
+    else
+        echo -e "${YELLOW}WARN${NC}  Plex not detected. Install from https://www.plex.tv/media-server-downloads/"
+        echo "  You can continue and install Plex later."
+    fi
 fi
 
 # Check git
@@ -195,6 +205,20 @@ echo ""
 # Setup
 echo -e "${CYAN}Running setup...${NC}"
 bash scripts/setup.sh --media-dir "$MEDIA_DIR"
+
+# Write media server choice to .env
+if [[ -f .env ]]; then
+    if grep -q '^MEDIA_SERVER=' .env; then
+        sed -i '' "s|^MEDIA_SERVER=.*|MEDIA_SERVER=$MEDIA_SERVER|" .env
+    else
+        sed -i '' "1s|^|MEDIA_SERVER=$MEDIA_SERVER\n|" .env
+    fi
+fi
+
+# Create Jellyfin config directory if needed
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    mkdir -p "$MEDIA_DIR/config/jellyfin"
+fi
 
 echo ""
 
@@ -244,7 +268,11 @@ echo ""
 # Start stack
 echo -e "${CYAN}Starting media stack (first run downloads ~3-5 GB)...${NC}"
 echo ""
-if ! docker compose up -d; then
+COMPOSE_UP_CMD="docker compose up -d"
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    COMPOSE_UP_CMD="docker compose --profile jellyfin up -d"
+fi
+if ! $COMPOSE_UP_CMD; then
     echo ""
     echo -e "${RED}Failed to start the stack.${NC} Check the error output above."
     echo "Common issues:"
@@ -262,6 +290,9 @@ wait_for_service "Radarr" "http://localhost:7878" || true
 wait_for_service "Sonarr" "http://localhost:8989" || true
 wait_for_service "Seerr" "http://localhost:5055" || true
 wait_for_service "Tdarr" "http://localhost:8265" || true
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    wait_for_service "Jellyfin" "http://localhost:8096/health" || true
+fi
 
 # Configure
 echo ""
@@ -282,15 +313,25 @@ echo -e "  ${GREEN}Installation complete!${NC}"
 echo "======================================="
 echo ""
 echo "  Seerr:  http://localhost:5055"
-echo "  Plex:   http://localhost:32400/web"
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    echo "  Jellyfin: http://localhost:8096"
+else
+    echo "  Plex:   http://localhost:32400/web"
+fi
 echo "  Tdarr:  http://localhost:8265"
 echo ""
 echo "  Media location: $MEDIA_DIR"
 echo ""
 echo "  Remaining manual steps:"
-echo "    1. Set up Plex libraries (Movies: $MEDIA_DIR/Movies, TV: $MEDIA_DIR/TV Shows)"
-echo "    2. Edit $MEDIA_DIR/config/kometa/config.yml with Plex token + TMDB key"
-echo "    3. Configure Tdarr at http://localhost:8265"
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    echo "    1. Complete Jellyfin setup wizard at http://localhost:8096"
+    echo "       Add libraries: Movies = /data/movies, TV Shows = /data/tvshows"
+    echo "    2. Configure Tdarr at http://localhost:8265"
+else
+    echo "    1. Set up Plex libraries (Movies: $MEDIA_DIR/Movies, TV: $MEDIA_DIR/TV Shows)"
+    echo "    2. Edit $MEDIA_DIR/config/kometa/config.yml with Plex token + TMDB key"
+    echo "    3. Configure Tdarr at http://localhost:8265"
+fi
 echo ""
 echo "  Optional - Music (Lidarr + Tidarr):"
 echo "    bash scripts/setup-music.sh"

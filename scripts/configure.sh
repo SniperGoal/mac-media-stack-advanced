@@ -48,6 +48,8 @@ if [[ ! -f "$SCRIPT_DIR/.env" ]]; then
 fi
 source "$SCRIPT_DIR/.env"
 
+MEDIA_SERVER="${MEDIA_SERVER:-plex}"
+
 QB_PASSWORD="media$(openssl rand -hex 12)"
 CREDS_FILE="$MEDIA_DIR/state/first-run-credentials.txt"
 
@@ -358,7 +360,21 @@ echo ""
 # 6. Seerr
 echo -e "${CYAN}[6/6] Configuring Seerr...${NC}"
 echo ""
-if [[ "$NON_INTERACTIVE" == true ]]; then
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    if [[ "$NON_INTERACTIVE" == true ]]; then
+        warn "Non-interactive mode: skipping Seerr Jellyfin sign-in prompt."
+        warn "Manually open http://localhost:5055 and select 'Use your Jellyfin account'."
+        warn "Jellyfin URL: http://host.docker.internal:8096"
+    else
+        echo -e "  ${YELLOW}ACTION NEEDED:${NC} Open ${CYAN}http://localhost:5055${NC} in your browser"
+        echo "  Select \"Use your Jellyfin account\" and enter:"
+        echo "    Jellyfin URL: http://host.docker.internal:8096"
+        echo ""
+        read -p "  Press Enter after you've signed in to Seerr..."
+        echo ""
+        sleep 3
+    fi
+elif [[ "$NON_INTERACTIVE" == true ]]; then
     warn "Non-interactive mode: skipping Seerr Plex sign-in prompt."
     warn "Manually open http://localhost:5055 and sign in with Plex, then configure services in Seerr."
 else
@@ -405,10 +421,16 @@ echo "  Prowlarr API Key: $PROWLARR_KEY"
 echo "  Saved credentials: $CREDS_FILE"
 echo ""
 echo -e "  ${YELLOW}Auto-wired:${NC} Recyclarr + Unpackerr API keys"
-echo "  Remaining manual keys:"
-echo "    - $MEDIA_DIR/config/kometa/config.yml (PLEX_TOKEN, TMDB API key)"
+if [[ "$MEDIA_SERVER" == "plex" ]]; then
+    echo "  Remaining manual keys:"
+    echo "    - $MEDIA_DIR/config/kometa/config.yml (PLEX_TOKEN, TMDB API key)"
+fi
 echo ""
 echo "  Seerr:       http://localhost:5055"
-echo "  Plex:        http://localhost:32400/web"
+if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
+    echo "  Jellyfin:    http://localhost:8096"
+else
+    echo "  Plex:        http://localhost:32400/web"
+fi
 echo "  Tdarr:       http://localhost:8265"
 echo ""

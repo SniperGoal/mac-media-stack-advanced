@@ -54,8 +54,16 @@ else
     log "OK: VPN active (IP: $vpn_ip, iface=$vpn_iface, health=${vpn_health:-unknown})"
 fi
 
+# Read media server choice
+# shellcheck disable=SC1091
+source "$PROJECT_DIR/.env" 2>/dev/null || true
+
 # Check containers
-for name in gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr tdarr unpackerr recyclarr lidarr tidarr; do
+CONTAINERS="gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr tdarr unpackerr recyclarr lidarr tidarr"
+if [[ "${MEDIA_SERVER:-plex}" == "jellyfin" ]]; then
+    CONTAINERS="$CONTAINERS jellyfin"
+fi
+for name in $CONTAINERS; do
     state=$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null)
     # Skip music services if not installed
     if [[ "$name" == "lidarr" || "$name" == "tidarr" ]] && [[ -z "$state" ]]; then
