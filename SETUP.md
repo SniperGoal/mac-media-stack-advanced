@@ -14,7 +14,7 @@ If you already have OrbStack (or Docker Desktop) and Plex installed, you can run
 curl -fsSL https://raw.githubusercontent.com/liamvibecodes/mac-media-stack-advanced/main/bootstrap.sh | bash
 ```
 
-It will prompt you for VPN keys, configure all services, and install automation jobs. You'll still need to do Step 7 (configure Recyclarr, Kometa, Tdarr, and Unpackerr with API keys) manually afterward.
+It will prompt you for VPN keys, configure all core services, auto-wire Recyclarr + Unpackerr API keys, and install automation jobs. You'll still need to do Step 7 for Kometa/Tdarr manual setup afterward.
 
 To run from a local clone with custom paths:
 
@@ -173,13 +173,8 @@ It also writes credentials/API keys to `<MEDIA_DIR>/state/first-run-credentials.
 
 ### Recyclarr (TRaSH quality profiles)
 
-The setup script copied a template to `<MEDIA_DIR>/config/recyclarr/recyclarr.yml` (default: `~/Media/config/recyclarr/recyclarr.yml`). Open it and replace the API key placeholders with the keys printed by configure.sh:
-
-```bash
-open -a TextEdit ~/Media/config/recyclarr/recyclarr.yml
-```
-
-Replace `YOUR_SONARR_API_KEY` and `YOUR_RADARR_API_KEY`, then save.
+`scripts/configure.sh` now auto-injects your Sonarr/Radarr API keys into `<MEDIA_DIR>/config/recyclarr/recyclarr.yml` (default: `~/Media/config/recyclarr/recyclarr.yml`).
+You only need to review it if you want to customize profile behavior.
 
 Recyclarr runs automatically at 3am daily. To trigger a manual sync:
 ```bash
@@ -208,14 +203,8 @@ Replace `YOUR_PLEX_TOKEN` and `YOUR_TMDB_API_KEY`, then save.
 
 ### Unpackerr
 
-Update `.env` with your Radarr and Sonarr API keys:
-```bash
-open -a TextEdit .env
-```
-Fill in `UN_SONARR_0_API_KEY` and `UN_RADARR_0_API_KEY`, then restart:
-```bash
-docker compose restart unpackerr
-```
+`scripts/configure.sh` now auto-writes `UN_SONARR_0_API_KEY` and `UN_RADARR_0_API_KEY` in `.env` and restarts Unpackerr.
+No manual edit is required unless you want to override defaults.
 
 ---
 

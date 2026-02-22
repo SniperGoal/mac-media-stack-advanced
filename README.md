@@ -33,6 +33,7 @@ There are dozens of *arr stack Docker Compose repos on GitHub. Almost all of the
 
 - **One command to install.** Clone, configure, and start everything with a single `curl | bash`. No 45-minute manual setup.
 - **Auto-configures itself.** The configure script wires up the core request/download stack via API (qBittorrent, Prowlarr, Radarr, Sonarr, Seerr). No clicking through those web UIs.
+- **Auto-wires keys.** The configure script also writes Radarr/Sonarr API keys into Recyclarr and Unpackerr automatically.
 - **Built for macOS.** Native paths, launchd instead of systemd, OrbStack or Docker Desktop instead of bare Docker. Not a Linux guide with "should work on Mac" in the footnotes.
 - **Self-healing.** Hourly health checks, download watchdog, VPN failover between providers. Runs unattended.
 - **Quality automation.** TRaSH Guides profiles filter out bad releases. Kometa keeps Plex metadata clean. Tdarr saves disk space with automatic transcoding.
@@ -187,7 +188,7 @@ Pre-configured templates in `configs/` (copy to your Media folder after first bo
 - **recyclarr.yml** - TRaSH Guides quality profiles for Radarr and Sonarr
 - **kometa.yml** - Plex metadata automation (franchise collections, resolution overlays)
 
-Both require API keys that are generated on first boot. The configure script will print them for you.
+Recyclarr API keys are auto-injected by `scripts/configure.sh`. Kometa still needs your manual Plex token + TMDB API key.
 
 ## Music Setup
 

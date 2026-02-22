@@ -69,6 +69,81 @@ EOF
     chmod 600 "$CREDS_FILE"
 }
 
+set_env_key() {
+    local key="$1"
+    local value="$2"
+    local file="$3"
+    local safe_value
+
+    if [[ ! -f "$file" ]]; then
+        return 1
+    fi
+
+    safe_value="${value//\\/\\\\}"
+    safe_value="${safe_value//&/\\&}"
+
+    if grep -q "^${key}=" "$file"; then
+        sed -i '' "s|^${key}=.*|${key}=${safe_value}|" "$file"
+    else
+        printf '\n%s=%s\n' "$key" "$value" >> "$file"
+    fi
+}
+
+wire_recyclarr_keys() {
+    local recyclarr_cfg="$MEDIA_DIR/config/recyclarr/recyclarr.yml"
+    local tmp
+
+    if [[ ! -f "$recyclarr_cfg" ]]; then
+        warn "Recyclarr config not found at $recyclarr_cfg (skipping key injection)"
+        return 0
+    fi
+
+    tmp="$(mktemp)"
+    awk -v sonarr_key="$SONARR_KEY" -v radarr_key="$RADARR_KEY" '
+        /^sonarr:/ {section="sonarr"}
+        /^radarr:/ {section="radarr"}
+        {
+            if (section=="sonarr" && $0 ~ /^[[:space:]]+api_key:[[:space:]]*/) {
+                print "    api_key: " sonarr_key
+                next
+            }
+            if (section=="radarr" && $0 ~ /^[[:space:]]+api_key:[[:space:]]*/) {
+                print "    api_key: " radarr_key
+                next
+            }
+            print
+        }
+    ' "$recyclarr_cfg" > "$tmp"
+    mv "$tmp" "$recyclarr_cfg"
+    log "Recyclarr API keys written to $recyclarr_cfg"
+}
+
+wire_unpackerr_keys() {
+    local env_file="$SCRIPT_DIR/.env"
+    local unpackerr_state
+
+    if ! set_env_key "UN_SONARR_0_API_KEY" "$SONARR_KEY" "$env_file"; then
+        warn "Could not update UN_SONARR_0_API_KEY in $env_file"
+        return 0
+    fi
+    if ! set_env_key "UN_RADARR_0_API_KEY" "$RADARR_KEY" "$env_file"; then
+        warn "Could not update UN_RADARR_0_API_KEY in $env_file"
+        return 0
+    fi
+    log "Unpackerr API keys updated in .env"
+
+    unpackerr_state=$(docker inspect -f '{{.State.Status}}' unpackerr 2>/dev/null || true)
+    if [[ "$unpackerr_state" == "running" || "$unpackerr_state" == "created" || "$unpackerr_state" == "restarting" ]]; then
+        if docker compose restart unpackerr >/dev/null 2>&1; then
+            log "Unpackerr restarted to apply new API keys"
+        else
+            warn "Unpackerr restart failed; run 'docker compose restart unpackerr' manually"
+        fi
+    else
+        warn "Unpackerr container not found/running; start stack then run 'docker compose restart unpackerr'"
+    fi
+}
+
 api_post_json() {
     local label="$1"
     local url="$2"
@@ -174,6 +249,11 @@ SONARR_KEY=$(get_api_key "sonarr")
 log "Sonarr API key: ${SONARR_KEY:0:8}..."
 PROWLARR_KEY=$(get_api_key "prowlarr")
 log "Prowlarr API key: ${PROWLARR_KEY:0:8}..."
+echo ""
+
+echo -e "${CYAN}[*] Wiring advanced configs...${NC}"
+wire_recyclarr_keys
+wire_unpackerr_keys
 echo ""
 
 # 3. Configure qBittorrent
@@ -324,9 +404,9 @@ echo "  Sonarr API Key:   $SONARR_KEY"
 echo "  Prowlarr API Key: $PROWLARR_KEY"
 echo "  Saved credentials: $CREDS_FILE"
 echo ""
-echo -e "  ${YELLOW}Save these!${NC} You'll need the API keys for:"
-echo "    - configs/recyclarr.yml (copy to $MEDIA_DIR/config/recyclarr/)"
-echo "    - .env (UN_SONARR_0_API_KEY and UN_RADARR_0_API_KEY for Unpackerr)"
+echo -e "  ${YELLOW}Auto-wired:${NC} Recyclarr + Unpackerr API keys"
+echo "  Remaining manual keys:"
+echo "    - $MEDIA_DIR/config/kometa/config.yml (PLEX_TOKEN, TMDB API key)"
 echo ""
 echo "  Seerr:       http://localhost:5055"
 echo "  Plex:        http://localhost:32400/web"
