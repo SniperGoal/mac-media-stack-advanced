@@ -236,6 +236,41 @@ if [[ "$CLOUD_STORAGE_ENABLED" == "true" ]]; then
     fi
 fi
 
+# NAS-specific checks
+STORAGE_TYPE=""
+if [[ -f "$ENV_FILE" ]]; then
+    STORAGE_TYPE=$(sed -n 's/^STORAGE_TYPE=//p' "$ENV_FILE" | head -1)
+fi
+
+if [[ "$STORAGE_TYPE" == "nas" ]]; then
+    nas_key="$MEDIA_DIR/config/rclone/nas_key.pem"
+    if [[ -f "$nas_key" ]]; then
+        ok "NAS SSH key exists"
+        key_perms=$(stat -f '%Lp' "$nas_key" 2>/dev/null || stat -c '%a' "$nas_key" 2>/dev/null || echo "unknown")
+        if [[ "$key_perms" == "600" ]]; then
+            ok "NAS SSH key permissions are 600"
+        else
+            fail "NAS SSH key permissions are $key_perms (expected 600)"
+        fi
+    else
+        warn "No NAS SSH key found at $nas_key (password auth may be in use)"
+    fi
+
+    # Test NAS connectivity
+    rclone_conf="$MEDIA_DIR/config/rclone/rclone.conf"
+    env_remote=$(sed -n 's/^RCLONE_REMOTE=//p' "$ENV_FILE" | head -1)
+    if [[ -n "$env_remote" && -f "$rclone_conf" ]]; then
+        if docker run --rm \
+            -v "$MEDIA_DIR/config/rclone:/config/rclone" \
+            rclone/rclone lsd "${env_remote}:" \
+            --contimeout 10s 2>/dev/null; then
+            ok "NAS reachable via rclone SFTP"
+        else
+            fail "Cannot reach NAS via rclone SFTP (check network/credentials)"
+        fi
+    fi
+fi
+
 PORTS="5055 9696 8989 7878 8080 6767 8191 8265 8266"
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     PORTS="$PORTS 8096"

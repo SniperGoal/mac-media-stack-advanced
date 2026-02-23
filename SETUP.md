@@ -335,9 +335,9 @@ Everything else is fully automated.
 
 ---
 
-## Optional: Cloud Storage (rclone + mergerfs)
+## Optional: Cloud / NAS Storage (rclone + mergerfs)
 
-If your local disk is too small for your full library, cloud storage lets you extend it transparently. rclone mounts your cloud provider (Google Drive, S3, B2, Dropbox, etc.) inside Docker, and mergerfs overlays it with your local storage so all services see one unified library.
+If your local disk is too small for your full library, or you have a NAS with plenty of space, remote storage lets you extend your library transparently. rclone mounts your cloud provider or NAS (via SFTP) inside Docker, and mergerfs overlays it with your local storage so all services see one unified library.
 
 ### Compatibility (macOS)
 
@@ -365,6 +365,33 @@ docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profi
 
 Or pass `--cloud-storage` to `bootstrap.sh` for a full install.
 
+### NAS Setup (TrueNAS, Synology, Unraid)
+
+```bash
+bash scripts/setup-cloud-storage.sh --storage-type nas
+```
+
+The wizard will:
+1. Ask for your NAS hostname/IP and SSH username
+2. Offer to generate an SSH key pair (recommended), use an existing key, or use password auth
+3. Ask for your media path with platform-specific examples
+4. Auto-detect Synology paths and add `--sftp-path-override` for SFTP chroot compatibility
+5. Test connectivity before writing the config
+6. Write NAS-optimized VFS cache settings to `.env`
+
+**SSH key setup:** If you generate a new key, the wizard prints the public key. Add it to your NAS:
+- **TrueNAS:** Accounts > Users > [user] > SSH Public Key
+- **Synology:** DSM > Control Panel > User > [user] > Edit > SSH Key
+- **Unraid:** Tools > User SSH Keys, or append to `~/.ssh/authorized_keys`
+
+**Start with NAS storage:**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile jellyfin --profile tdarr-docker up -d
+```
+
+Or use bootstrap: `bash bootstrap.sh --nas-storage`
+
 ### How it works
 
 - **Write path:** Downloads land on local disk (fast). Every 6 hours, `cloud-upload.sh` moves files older than 24h to the cloud via `rclone move`.
@@ -390,6 +417,22 @@ docker exec rclone-mount rclone ls myremote: --max-depth 1
 
 # Restart cloud storage (order matters: rclone first, then mergerfs)
 docker restart rclone-mount && sleep 15 && docker restart mergerfs
+```
+
+### NAS-specific troubleshooting
+
+```bash
+# Verify SSH key permissions
+ls -la ~/Media/config/rclone/nas_key.pem
+# Should show -rw------- (600)
+
+# Test NAS connectivity directly
+docker run --rm -v ~/Media/config/rclone:/config/rclone rclone/rclone lsd mynas: --contimeout 10s
+
+# Check SFTP connection speed
+docker run --rm -v ~/Media/config/rclone:/config/rclone rclone/rclone test bandwidth mynas: --duration 10s
+
+# Synology: if paths don't resolve, check sftp_path_override in rclone.conf
 ```
 
 ---

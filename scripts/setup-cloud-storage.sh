@@ -1,7 +1,7 @@
 #!/bin/bash
-# Cloud Storage Setup (rclone + mergerfs)
+# Cloud / NAS Storage Setup (rclone + mergerfs)
 # Creates directories, configures rclone remote, writes cloud storage env vars.
-# Usage: bash scripts/setup-cloud-storage.sh [--media-dir DIR] [--non-interactive] [--help]
+# Usage: bash scripts/setup-cloud-storage.sh [--media-dir DIR] [--non-interactive] [--storage-type TYPE] [--help]
 
 set -e
 
@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source "$SCRIPT_DIR/scripts/lib/media-path.sh"
 
 NON_INTERACTIVE=false
+STORAGE_TYPE=""
 
 usage() {
     cat <<EOF
@@ -26,6 +27,7 @@ Sets up rclone + mergerfs cloud storage integration.
 Options:
   --media-dir DIR       Media root path (default: from .env, otherwise ~/Media)
   --non-interactive     Skip interactive prompts (requires RCLONE_REMOTE in .env)
+  --storage-type TYPE   Storage type: cloud (default) or nas
   --help                Show this help message
 EOF
 }
@@ -44,6 +46,14 @@ while [[ $# -gt 0 ]]; do
         --non-interactive)
             NON_INTERACTIVE=true
             shift
+            ;;
+        --storage-type)
+            if [[ $# -lt 2 || "$2" == --* ]]; then
+                echo "Missing value for --storage-type"
+                exit 1
+            fi
+            STORAGE_TYPE="$2"
+            shift 2
             ;;
         --help|-h)
             usage
@@ -65,9 +75,26 @@ fi
 
 echo ""
 echo "=============================="
-echo "  Cloud Storage Setup"
+echo "  Cloud / NAS Storage Setup"
 echo "=============================="
 echo ""
+
+# Determine storage type
+if [[ -z "$STORAGE_TYPE" && "$NON_INTERACTIVE" == false ]]; then
+    echo "What type of storage backend?"
+    echo ""
+    echo "  1) Cloud provider (Google Drive, S3, B2, Dropbox, etc.)"
+    echo "  2) NAS (TrueNAS, Synology, Unraid — SFTP over LAN)"
+    echo ""
+    read -p "  Choice [1/2]: " storage_choice
+    echo ""
+    case "$storage_choice" in
+        2) STORAGE_TYPE="nas" ;;
+        *) STORAGE_TYPE="cloud" ;;
+    esac
+elif [[ -z "$STORAGE_TYPE" ]]; then
+    STORAGE_TYPE="cloud"
+fi
 
 MEDIA_SERVER="plex"
 TDARR_MODE="native"
@@ -109,9 +136,122 @@ mkdir -p "$MEDIA_DIR"/{config/rclone,cloud,merged}
 echo -e "  ${GREEN}Done${NC}"
 echo ""
 
+setup_nas_sftp() {
+    echo "NAS SFTP Configuration"
+    echo ""
+
+    read -p "  NAS hostname or IP: " nas_host
+    read -p "  SSH username: " nas_user
+
+    echo ""
+    echo "  SSH authentication:"
+    echo "    a) Generate a new SSH key pair"
+    echo "    b) Use an existing SSH key"
+    echo "    c) Use password authentication"
+    echo ""
+    read -p "  Choice [a/b/c]: " auth_choice
+    echo ""
+
+    NAS_KEY_PATH=""
+    NAS_USE_PASSWORD=false
+
+    case "$auth_choice" in
+        a)
+            NAS_KEY_PATH="$MEDIA_DIR/config/rclone/nas_key.pem"
+            echo "  Generating SSH key pair..."
+            ssh-keygen -t ed25519 -f "$NAS_KEY_PATH" -N "" -q
+            chmod 600 "$NAS_KEY_PATH"
+            echo -e "  ${GREEN}Key generated:${NC} $NAS_KEY_PATH"
+            echo ""
+            echo -e "  ${CYAN}Add this public key to your NAS authorized_keys:${NC}"
+            echo ""
+            cat "${NAS_KEY_PATH}.pub"
+            echo ""
+            read -p "  Press Enter after adding the key to your NAS..." _
+            ;;
+        b)
+            read -p "  Path to existing SSH private key: " existing_key
+            existing_key="${existing_key/#\~/$HOME}"
+            if [[ -f "$existing_key" ]]; then
+                NAS_KEY_PATH="$MEDIA_DIR/config/rclone/nas_key.pem"
+                cp "$existing_key" "$NAS_KEY_PATH"
+                chmod 600 "$NAS_KEY_PATH"
+                echo -e "  ${GREEN}Copied${NC}"
+            else
+                echo -e "  ${RED}File not found:${NC} $existing_key"
+                return 1
+            fi
+            ;;
+        c)
+            NAS_USE_PASSWORD=true
+            echo -e "  ${YELLOW}Note:${NC} Password auth works but SSH key auth is recommended for unattended operation."
+            ;;
+    esac
+
+    echo ""
+    echo "  Common NAS media paths:"
+    echo "    TrueNAS:  /mnt/pool/dataset/media"
+    echo "    Synology:  /volume1/media"
+    echo "    Unraid:    /mnt/user/media"
+    echo ""
+    read -p "  Media path on NAS: " nas_path
+    echo ""
+
+    # Detect Synology (path starts with /volume)
+    SFTP_OVERRIDE=""
+    if [[ "$nas_path" == /volume* ]]; then
+        echo -e "  ${CYAN}Detected Synology path.${NC} Adding --sftp-path-override for SFTP chroot compatibility."
+        SFTP_OVERRIDE="true"
+    fi
+
+    # Write rclone.conf for NAS SFTP
+    RCLONE_CONF="$MEDIA_DIR/config/rclone/rclone.conf"
+    RCLONE_REMOTE="${RCLONE_REMOTE:-mynas}"
+    RCLONE_REMOTE_PATH="$nas_path"
+
+    cat > "$RCLONE_CONF" <<RCLONEEOF
+[$RCLONE_REMOTE]
+type = sftp
+host = $nas_host
+user = $nas_user
+RCLONEEOF
+
+    if [[ "$NAS_USE_PASSWORD" == true ]]; then
+        echo "# Run: rclone obscure YOUR_PASSWORD, then set pass = RESULT" >> "$RCLONE_CONF"
+    elif [[ -n "$NAS_KEY_PATH" ]]; then
+        echo "key_file = /config/rclone/nas_key.pem" >> "$RCLONE_CONF"
+    fi
+
+    if [[ "$SFTP_OVERRIDE" == "true" ]]; then
+        echo "sftp_path_override = $nas_path" >> "$RCLONE_CONF"
+    fi
+
+    echo "" >> "$RCLONE_CONF"
+    echo -e "  ${GREEN}rclone.conf written${NC}"
+
+    # Test connectivity
+    echo ""
+    echo "  Testing NAS connectivity..."
+    if docker run --rm \
+        -v "$MEDIA_DIR/config/rclone:/config/rclone" \
+        rclone/rclone lsd "${RCLONE_REMOTE}:${RCLONE_REMOTE_PATH}" \
+        --contimeout 10s 2>/dev/null; then
+        echo -e "  ${GREEN}Connected to NAS${NC}"
+    else
+        echo -e "  ${YELLOW}WARN${NC}  Could not connect to NAS. Check hostname, credentials, and path."
+        echo "  You can edit $RCLONE_CONF manually and retry."
+    fi
+}
+
+# Branch on storage type
+if [[ "$STORAGE_TYPE" == "nas" ]]; then
+    setup_nas_sftp
+fi
+
 # Check for existing rclone.conf
 RCLONE_CONF="$MEDIA_DIR/config/rclone/rclone.conf"
 
+if [[ "$STORAGE_TYPE" != "nas" ]]; then
 if [[ -f "$RCLONE_CONF" ]]; then
     echo -e "${GREEN}Found${NC} existing rclone.conf at $RCLONE_CONF"
     echo ""
@@ -161,6 +301,7 @@ else
                 ;;
         esac
     fi
+fi
 fi
 
 # Get remote name and path
@@ -231,6 +372,22 @@ if [[ -f "$ENV_FILE" ]]; then
     done
 
     echo -e "  ${GREEN}Updated .env${NC}"
+
+    if [[ "$STORAGE_TYPE" == "nas" ]]; then
+        # Write NAS-optimized defaults
+        for nas_default in "STORAGE_TYPE=nas" "RCLONE_VFS_CACHE_MAX_SIZE=10G" "RCLONE_VFS_CACHE_MAX_AGE=1h" "RCLONE_VFS_READ_CHUNK_SIZE=32M" "RCLONE_DIR_CACHE_TIME=30s" "CLOUD_UPLOAD_MIN_AGE_HOURS=2"; do
+            var_name="${nas_default%%=*}"
+            var_value="${nas_default#*=}"
+            if grep -q "^${var_name}=" "$ENV_FILE" 2>/dev/null; then
+                sed -i '' "s|^${var_name}=.*|${var_name}=$var_value|" "$ENV_FILE"
+            elif grep -q "^# ${var_name}=" "$ENV_FILE" 2>/dev/null; then
+                sed -i '' "s|^# ${var_name}=.*|${var_name}=$var_value|" "$ENV_FILE"
+            else
+                printf '%s=%s\n' "$var_name" "$var_value" >> "$ENV_FILE"
+            fi
+        done
+        echo -e "  ${GREEN}NAS-optimized defaults written${NC}"
+    fi
 else
     echo -e "  ${YELLOW}WARN${NC}  No .env file found. Run scripts/setup.sh first."
 fi
@@ -262,7 +419,11 @@ fi
 
 echo ""
 echo "=============================="
-echo "  Cloud storage setup complete!"
+if [[ "$STORAGE_TYPE" == "nas" ]]; then
+    echo "  NAS storage setup complete!"
+else
+    echo "  Cloud storage setup complete!"
+fi
 echo "=============================="
 echo ""
 echo "Next steps:"

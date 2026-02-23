@@ -17,6 +17,7 @@ NON_INTERACTIVE=false
 MEDIA_SERVER=plex
 TDARR_MODE=native
 CLOUD_STORAGE=false
+NAS_STORAGE=false
 
 usage() {
     cat <<EOF
@@ -29,6 +30,7 @@ Options:
   --tdarr-mode MODE     Tdarr mode: native (default) or docker
   --tdarr-docker        Shortcut for --tdarr-mode docker
   --cloud-storage       Enable cloud storage (rclone + mergerfs)
+  --nas-storage         Enable NAS storage via SFTP (rclone + mergerfs)
   --non-interactive     Skip interactive prompts (manual Seerr wiring required)
   --help                Show this help message
 
@@ -37,6 +39,7 @@ Examples:
   bash bootstrap.sh --media-dir /Volumes/T9/Media
   bash bootstrap.sh --tdarr-docker
   bash bootstrap.sh --jellyfin --cloud-storage --tdarr-docker
+  bash bootstrap.sh --jellyfin --nas-storage --tdarr-docker
   bash bootstrap.sh --media-dir /Volumes/T9/Media --non-interactive
 EOF
 }
@@ -76,6 +79,11 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --cloud-storage)
+            CLOUD_STORAGE=true
+            shift
+            ;;
+        --nas-storage)
+            NAS_STORAGE=true
             CLOUD_STORAGE=true
             shift
             ;;
@@ -334,11 +342,14 @@ fi
 if [[ "$CLOUD_STORAGE" == true ]]; then
     echo ""
     echo -e "${CYAN}Setting up cloud storage...${NC}"
-    if [[ "$NON_INTERACTIVE" == true ]]; then
-        bash scripts/setup-cloud-storage.sh --media-dir "$MEDIA_DIR" --non-interactive
-    else
-        bash scripts/setup-cloud-storage.sh --media-dir "$MEDIA_DIR"
+    SETUP_ARGS=("--media-dir" "$MEDIA_DIR")
+    if [[ "$NAS_STORAGE" == true ]]; then
+        SETUP_ARGS+=("--storage-type" "nas")
     fi
+    if [[ "$NON_INTERACTIVE" == true ]]; then
+        SETUP_ARGS+=("--non-interactive")
+    fi
+    bash scripts/setup-cloud-storage.sh "${SETUP_ARGS[@]}"
 fi
 
 echo ""
@@ -506,8 +517,13 @@ else
 fi
 echo ""
 if [[ "$CLOUD_ACTIVE" == true ]]; then
-    echo "  Cloud storage: enabled (rclone + mergerfs)"
-    echo "  Uploads run every 6 hours via launchd"
+    if [[ "$NAS_STORAGE" == true ]]; then
+        echo "  NAS storage: enabled (rclone SFTP + mergerfs)"
+        echo "  Uploads run every 2 hours via launchd"
+    else
+        echo "  Cloud storage: enabled (rclone + mergerfs)"
+        echo "  Uploads run every 6 hours via launchd"
+    fi
     echo ""
 fi
 

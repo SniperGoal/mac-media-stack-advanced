@@ -56,7 +56,7 @@ New to self-hosted media? Start with the [basic version](https://github.com/liam
 | **Intro Skipper** | Jellyfin plugin: auto-detects intros and adds a "Skip Intro" button on TV shows |
 | **TMDb Box Sets** | Jellyfin plugin: auto-creates franchise collections from TMDb data (Jellyfin's Kometa) |
 | **Jellystat** | Jellyfin analytics dashboard (like Tautulli for Plex: watch history, user stats, library insights) |
-| **Cloud Storage** | rclone + mergerfs: transparent cloud/local merged library (Google Drive, S3, B2, Dropbox) |
+| **Cloud / NAS Storage** | rclone + mergerfs: transparent remote/local merged library (Google Drive, S3, B2, Dropbox, NAS via SFTP) |
 
 ## Choosing Your Media Server
 
@@ -96,11 +96,11 @@ After the stack is running:
 
 Jellystat will start tracking watch history, user activity, and library statistics automatically.
 
-## Optional: Cloud Storage (rclone + mergerfs)
+## Optional: Cloud / NAS Storage (rclone + mergerfs)
 
-Transparent cloud/local merged library. rclone FUSE-mounts your cloud storage inside Docker (where FUSE works natively), mergerfs overlays it with local storage, and all existing services see a single unified path. Local-first writes keep downloads fast; a periodic upload script moves stable media to the cloud.
+Transparent cloud/local or NAS/local merged library. rclone FUSE-mounts your remote storage inside Docker (where FUSE works natively on macOS), mergerfs overlays it with local storage, and all existing services see a single unified path. Local-first writes keep downloads fast; a periodic upload script moves stable media to the remote.
 
-Supports Google Drive, S3, Backblaze B2, Dropbox, and [40+ other providers](https://rclone.org/overview/).
+Supports Google Drive, S3, Backblaze B2, Dropbox, NAS via SFTP (TrueNAS, Synology, Unraid), and [40+ other providers](https://rclone.org/overview/).
 
 ### Compatibility Requirements (macOS)
 
@@ -123,13 +123,26 @@ Or include it in bootstrap:
 bash bootstrap.sh --cloud-storage
 ```
 
+### NAS Quick Start
+
+```bash
+bash scripts/setup-cloud-storage.sh --storage-type nas
+docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile jellyfin --profile tdarr-docker up -d
+```
+
+Or include it in bootstrap:
+
+```bash
+bash bootstrap.sh --nas-storage
+```
+
 ### How It Works
 
 ```
 rclone-mount  -->  FUSE mounts cloud provider to /cloud
 mergerfs      -->  overlays /local + /cloud into /merged
 Radarr/Sonarr -->  read/write /merged (local-first writes)
-cloud-upload  -->  every 6h, moves files >24h old to cloud
+cloud-upload  -->  periodically moves stable files to remote (6h/24h for cloud, 2h for NAS)
 ```
 
 ### Library paths when cloud storage is enabled
@@ -149,6 +162,24 @@ cloud-upload  -->  every 6h, moves files >24h old to cloud
 | `RCLONE_VFS_CACHE_MAX_AGE` | `72h` | Max cache age |
 | `RCLONE_VFS_READ_CHUNK_SIZE` | `128M` | Read chunk size |
 | `CLOUD_UPLOAD_MIN_AGE_HOURS` | `24` | Only upload files older than this |
+
+### NAS Configuration (LAN-Optimized Defaults)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `STORAGE_TYPE` | (empty) | Set to `nas` for NAS mode |
+| `RCLONE_DIR_CACHE_TIME` | `30s` | Directory listing cache (shorter for LAN) |
+| `RCLONE_VFS_CACHE_MAX_SIZE` | `10G` | Smaller cache needed on fast LAN |
+| `RCLONE_VFS_CACHE_MAX_AGE` | `1h` | Shorter cache age on LAN |
+| `RCLONE_VFS_READ_CHUNK_SIZE` | `32M` | Read chunk size |
+| `CLOUD_UPLOAD_MIN_AGE_HOURS` | `2` | Upload files older than 2h (vs 24h for cloud) |
+
+**Platform notes:**
+- **TrueNAS:** Media path is typically `/mnt/pool/dataset/media`
+- **Synology:** Path is `/volume1/media`. The setup wizard auto-adds `--sftp-path-override` for SFTP chroot compatibility.
+- **Unraid:** Path is `/mnt/user/media`
+
+**Performance:** rclone SFTP delivers ~100MB/s on Gigabit LAN, adequate for multiple concurrent 4K streams.
 
 **Cloud mode note:** Use `TDARR_MODE=docker` when cloud storage is enabled. Native Tdarr cannot access merged Docker FUSE mounts on macOS.
 
@@ -185,7 +216,7 @@ Then open Tidarr at `http://localhost:8484` to authenticate with your Tidal acco
 | Log prune | Daily | Removes log files older than 30 days |
 | Franchise sort | Optional/manual | Sorts franchise collection movies by release date in Plex (Plex only) |
 | VPN failover | Every 2 min (optional) | Auto-switches between ProtonVPN and NordVPN on sustained failure |
-| Cloud upload | Every 6 hours (optional) | Moves local media older than 24h to cloud storage |
+| Cloud upload | Every 2-6 hours (optional) | Moves stable local media to remote storage (NAS: 2h, cloud: 6h) |
 | Watchtower | Daily at 04:00 (optional) | Auto-pulls latest container images and recreates updated services |
 
 Franchise sorting is kept manual by default because it requires your Plex token:
@@ -239,6 +270,12 @@ To use Jellyfin instead of Plex:
 
 ```bash
 bash bootstrap.sh --jellyfin
+```
+
+NAS storage via SFTP (TrueNAS, Synology, Unraid):
+
+```bash
+bash bootstrap.sh --nas-storage
 ```
 
 ## Update Existing Clone

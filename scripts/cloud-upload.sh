@@ -13,6 +13,8 @@ BASE_DIR="$(resolve_media_dir "$PROJECT_DIR")"
 # shellcheck disable=SC1091
 source "$PROJECT_DIR/.env" 2>/dev/null || true
 
+STORAGE_TYPE="${STORAGE_TYPE:-cloud}"
+
 # Exit silently if cloud storage not enabled
 if [[ "${CLOUD_STORAGE_ENABLED:-}" != "true" ]]; then
     exit 0
@@ -56,7 +58,7 @@ if [[ ! -f "$RCLONE_CONF" ]]; then
     exit 1
 fi
 
-log "--- Cloud upload started ---"
+log "--- Cloud upload started (${STORAGE_TYPE}) ---"
 
 # Move Movies
 if [[ -d "$BASE_DIR/Movies" ]]; then
@@ -90,4 +92,4 @@ if [[ -d "$BASE_DIR/TV Shows" ]]; then
     log "TV Shows upload complete (exit: $?)"
 fi
 
-log "--- Cloud upload finished ---"
+log "--- Cloud upload finished (${STORAGE_TYPE}) ---"

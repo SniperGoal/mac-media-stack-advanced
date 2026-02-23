@@ -57,4 +57,11 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage config >/dev/null
           docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile jellyfin config >/dev/null
           docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile tdarr-docker config >/dev/null
+
+          # NAS storage compose (same overlay, different env vars)
+          sed -i 's/^RCLONE_VFS_CACHE_MAX_SIZE=50G/RCLONE_VFS_CACHE_MAX_SIZE=10G/' .env
+          echo 'STORAGE_TYPE=nas' >> .env
+          echo 'RCLONE_DIR_CACHE_TIME=30s' >> .env
+          docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage config >/dev/null
+          docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile jellyfin config >/dev/null
           rm .env
