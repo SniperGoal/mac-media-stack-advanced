@@ -22,6 +22,12 @@ To run from a local clone with custom paths:
 bash bootstrap.sh --media-dir /Volumes/T9/Media --install-dir ~/mac-media-stack-advanced
 ```
 
+Already on an older clone and want the newest release tag:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/liamvibecodes/mac-media-stack-advanced/main/scripts/update-to-latest-release.sh)
+```
+
 Already running the basic stack and want an in-place migration? Use [UPGRADE.md](UPGRADE.md).
 
 ---

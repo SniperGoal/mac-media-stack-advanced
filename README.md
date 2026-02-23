@@ -176,6 +176,22 @@ To use Jellyfin instead of Plex:
 bash bootstrap.sh --jellyfin
 ```
 
+## Update Existing Clone
+
+Already cloned an older version and want the latest release tag without reinstalling?
+
+One-liner (run inside your existing clone directory):
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/liamvibecodes/mac-media-stack-advanced/main/scripts/update-to-latest-release.sh)
+```
+
+Local script (once present):
+
+```bash
+bash scripts/update-to-latest-release.sh
+```
+
 ## Upgrading From Basic
 
 Already running `mac-media-stack` and want to keep your existing library/configs?
@@ -268,6 +284,7 @@ bash scripts/vpn-mode.sh nord
 | `scripts/auto-heal.sh` | Hourly self-healer |
 | `scripts/backup.sh` | Config and database backup |
 | `scripts/download-watchdog.py` | Stalled torrent detection and auto-fix |
+| `scripts/update-to-latest-release.sh` | Updates an older clone to the latest tagged release safely |
 | `scripts/setup-tdarr-native.sh` | Installs/updates native Tdarr and launchd services |
 | `scripts/tdarr-apply-quality-flow.sh` | Loads quality-first HEVC flow preset into Tdarr DB |
 | `scripts/vpn-mode.sh` | Manual VPN provider switcher |
