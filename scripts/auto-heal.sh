@@ -57,9 +57,16 @@ fi
 # Read media server choice
 # shellcheck disable=SC1091
 source "$PROJECT_DIR/.env" 2>/dev/null || true
+TDARR_MODE="${TDARR_MODE:-native}"
+if [[ "$TDARR_MODE" != "native" && "$TDARR_MODE" != "docker" ]]; then
+    TDARR_MODE="native"
+fi
 
 # Check containers
-CONTAINERS="gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr tdarr unpackerr recyclarr lidarr tidarr"
+CONTAINERS="gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr unpackerr recyclarr lidarr tidarr"
+if [[ "$TDARR_MODE" == "docker" ]]; then
+    CONTAINERS="$CONTAINERS tdarr"
+fi
 if [[ "${MEDIA_SERVER:-plex}" == "jellyfin" ]]; then
     CONTAINERS="$CONTAINERS jellyfin jellystat-db jellystat"
 fi
@@ -75,6 +82,37 @@ for name in $CONTAINERS; do
         ((HEALED++))
     fi
 done
+
+if [[ "$TDARR_MODE" == "native" ]]; then
+    tdarr_ok=true
+    if ! launchctl print "gui/$UID/com.media-stack.tdarr.server" >/dev/null 2>&1; then
+        tdarr_ok=false
+        log "WARN: tdarr-server launchd job missing. Attempting load..."
+        launchctl load "$HOME/Library/LaunchAgents/com.media-stack.tdarr.server.plist" >> "$LOG" 2>&1 || true
+        launchctl kickstart -k "gui/$UID/com.media-stack.tdarr.server" >> "$LOG" 2>&1 || true
+        ((HEALED++))
+    fi
+    if ! launchctl print "gui/$UID/com.media-stack.tdarr.node" >/dev/null 2>&1; then
+        tdarr_ok=false
+        log "WARN: tdarr-node launchd job missing. Attempting load..."
+        launchctl load "$HOME/Library/LaunchAgents/com.media-stack.tdarr.node.plist" >> "$LOG" 2>&1 || true
+        launchctl kickstart -k "gui/$UID/com.media-stack.tdarr.node" >> "$LOG" 2>&1 || true
+        ((HEALED++))
+    fi
+
+    tdarr_http=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:8265 2>/dev/null || echo "000")
+    if [[ "$tdarr_http" =~ ^(200|301|302|307|401|403)$ ]]; then
+        if [[ "$tdarr_ok" == true ]]; then
+            log "OK: Tdarr native healthy"
+        fi
+    else
+        log "WARN: Tdarr UI check failed (HTTP $tdarr_http). Restarting tdarr launchd jobs..."
+        launchctl kickstart -k "gui/$UID/com.media-stack.tdarr.server" >> "$LOG" 2>&1 || true
+        sleep 3
+        launchctl kickstart -k "gui/$UID/com.media-stack.tdarr.node" >> "$LOG" 2>&1 || true
+        ((HEALED++))
+    fi
+fi
 
 if [[ $HEALED -gt 0 ]]; then
     log "Healed $HEALED issue(s)"

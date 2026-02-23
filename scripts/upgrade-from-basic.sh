@@ -214,6 +214,8 @@ copy_env_key_if_set "$BASIC_ENV" "$ADVANCED_ENV" "PGID"
 copy_env_key_if_set "$BASIC_ENV" "$ADVANCED_ENV" "TIMEZONE"
 copy_env_key_if_set "$BASIC_ENV" "$ADVANCED_ENV" "SEERR_BIND_IP"
 copy_env_key_if_set "$BASIC_ENV" "$ADVANCED_ENV" "MEDIA_SERVER"
+copy_env_key_if_set "$BASIC_ENV" "$ADVANCED_ENV" "TDARR_MODE"
+copy_env_key_if_set "$BASIC_ENV" "$ADVANCED_ENV" "TDARR_VERSION"
 
 wg_priv="$(env_get "$BASIC_ENV" "WIREGUARD_PRIVATE_KEY")"
 wg_addr="$(env_get "$BASIC_ENV" "WIREGUARD_ADDRESSES")"
@@ -228,6 +230,13 @@ log "Advanced .env updated from basic settings"
 
 MEDIA_SERVER="$(env_get "$ADVANCED_ENV" "MEDIA_SERVER")"
 MEDIA_SERVER="${MEDIA_SERVER:-plex}"
+TDARR_MODE="$(env_get "$ADVANCED_ENV" "TDARR_MODE")"
+TDARR_MODE="${TDARR_MODE:-native}"
+if [[ "$TDARR_MODE" != "native" && "$TDARR_MODE" != "docker" ]]; then
+    warn "Invalid TDARR_MODE '$TDARR_MODE' in advanced .env; defaulting to native"
+    TDARR_MODE="native"
+fi
+env_set "$ADVANCED_ENV" "TDARR_MODE" "$TDARR_MODE"
 
 BASIC_MEDIA_SERVER="$(env_get "$BASIC_ENV" "MEDIA_SERVER")"
 BASIC_MEDIA_SERVER="${BASIC_MEDIA_SERVER:-plex}"
@@ -240,12 +249,20 @@ info "Stopping basic stack"
 log "Basic stack stopped"
 
 info "Starting advanced stack"
+COMPOSE_ARGS=()
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
-    (cd "$ADVANCED_DIR" && docker compose --profile jellyfin up -d)
-else
-    (cd "$ADVANCED_DIR" && docker compose up -d)
+    COMPOSE_ARGS+=(--profile jellyfin)
 fi
+if [[ "$TDARR_MODE" == "docker" ]]; then
+    COMPOSE_ARGS+=(--profile tdarr-docker)
+fi
+(cd "$ADVANCED_DIR" && docker compose "${COMPOSE_ARGS[@]}" up -d)
 log "Advanced stack started"
+
+if [[ "$TDARR_MODE" == "native" ]]; then
+    info "Setting up native Tdarr"
+    (cd "$ADVANCED_DIR" && bash scripts/setup-tdarr-native.sh --media-dir "$MEDIA_DIR")
+fi
 
 info "Running auto-configuration"
 if [[ "$NON_INTERACTIVE" == true ]]; then
@@ -284,9 +301,9 @@ if [[ "$MEDIA_SERVER" == "plex" ]]; then
     echo "  1. Set Kometa keys in $MEDIA_DIR/config/kometa/config.yml"
     echo "     - PLEX_TOKEN"
     echo "     - TMDB API key"
-    echo "  2. Configure Tdarr at http://localhost:8265"
+    echo "  2. In Tdarr, add libraries and assign 'Quality-First HEVC (Resolution Preserving)'"
 else
-    echo "  1. Configure Tdarr at http://localhost:8265"
+    echo "  1. In Tdarr, add libraries and assign 'Quality-First HEVC (Resolution Preserving)'"
     echo "  2. Open Jellystat at http://localhost:3000 and connect to http://jellyfin:8096"
     echo "  3. If prompted, restart Jellyfin to finish Intro Skipper/TMDb Box Sets plugin activation"
 fi

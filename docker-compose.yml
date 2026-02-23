@@ -155,6 +155,8 @@ services:
   tdarr:
     image: ghcr.io/haveagitgat/tdarr@sha256:20a5656c4af4854e1877046294f77113f949d27e35940a9a65f231423d063207
     container_name: tdarr
+    # Optional fallback mode. Native Tdarr is the default on macOS.
+    profiles: ["tdarr-docker"]
     environment:
       - PUID=${PUID:-501}
       - PGID=${PGID:-20}

@@ -70,6 +70,10 @@ bash scripts/doctor.sh
 docker compose up -d
 # If using Jellyfin:
 docker compose --profile jellyfin up -d
+# If using Docker Tdarr:
+docker compose --profile tdarr-docker up -d
+# If using native Tdarr (default):
+bash scripts/setup-tdarr-native.sh
 bash scripts/configure.sh
 bash scripts/install-launchd-jobs.sh
 ```
@@ -82,7 +86,7 @@ bash scripts/health-check.sh
 
 After either upgrade path, confirm:
 
-1. Tdarr libraries/plugins are configured at `http://localhost:8265`
+1. Tdarr is reachable at `http://localhost:8265` and libraries are assigned to `Quality-First HEVC (Resolution Preserving)`
 2. `bash scripts/health-check.sh` reports clean results
 3. If using Plex: `~/Media/config/kometa/config.yml` has `PLEX_TOKEN` + TMDB key
 4. If using Jellyfin: open Jellystat at `http://localhost:3000` and connect it to `http://jellyfin:8096`

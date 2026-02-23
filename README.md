@@ -37,7 +37,7 @@ There are dozens of *arr stack Docker Compose repos on GitHub. Almost all of the
 - **Auto-wires keys.** The configure script also writes Radarr/Sonarr API keys into Recyclarr and Unpackerr automatically.
 - **Built for macOS.** Native paths, launchd instead of systemd, OrbStack or Docker Desktop instead of bare Docker. Not a Linux guide with "should work on Mac" in the footnotes.
 - **Self-healing.** Hourly health checks, download watchdog, VPN failover between providers. Runs unattended.
-- **Quality automation.** TRaSH Guides profiles filter out bad releases. Kometa keeps Plex metadata clean. Tdarr saves disk space with automatic transcoding.
+- **Quality automation.** TRaSH Guides profiles filter out bad releases. Kometa keeps Plex metadata clean. Tdarr runs native-first on macOS with a quality-preserving flow preset.
 
 New to self-hosted media? Start with the [basic version](https://github.com/liamvibecodes/mac-media-stack) first.
 
@@ -47,7 +47,7 @@ New to self-hosted media? Start with the [basic version](https://github.com/liam
 
 | Service | What It Does |
 |---------|-------------|
-| **Tdarr** | Automatic transcoding (convert codecs, save disk space) |
+| **Tdarr** | Native-first transcoding on macOS with quality-preserving HEVC flow preset |
 | **Recyclarr** | TRaSH Guides quality profiles (penalizes bad release groups, scene releases) |
 | **Kometa** | Plex metadata automation (franchise collections, resolution overlays, RT ratings) |
 | **Unpackerr** | Auto-extracts RAR'd downloads for Radarr/Sonarr |
@@ -126,6 +126,17 @@ Then open Tidarr at `http://localhost:8484` to authenticate with your Tidal acco
 Franchise sorting is kept manual by default because it requires your Plex token:
 `PLEX_TOKEN=... python3 scripts/franchise-sort.py`
 
+### Tdarr Mode
+
+- Default is `TDARR_MODE=native` (recommended on macOS).
+- Native Tdarr is installed and managed by `scripts/setup-tdarr-native.sh` (launchd server + node).
+- Docker Tdarr remains available via `TDARR_MODE=docker` and `--profile tdarr-docker`.
+- The stack preloads this Tdarr flow preset: `Quality-First HEVC (Resolution Preserving)`.
+  - No resolution downscale
+  - No hard bitrate cap
+  - H.264 -> H.265 (CRF 19, preset slow)
+  - Replace only when output size ratio stays within 25-99%
+
 ### Download Watchdog Configuration
 
 The download watchdog reads qBittorrent credentials and behavior settings from environment variables or automatically detects them from your config files. Optional environment variables:
@@ -151,6 +162,12 @@ Optional flags when running from a local clone:
 
 ```bash
 bash bootstrap.sh --media-dir /Volumes/T9/Media --install-dir ~/mac-media-stack-advanced --non-interactive
+```
+
+Use Docker-based Tdarr instead of native Tdarr:
+
+```bash
+bash bootstrap.sh --tdarr-docker
 ```
 
 To use Jellyfin instead of Plex:
@@ -188,6 +205,10 @@ bash scripts/doctor.sh           # preflight validation before first boot
 docker compose up -d
 # if MEDIA_SERVER=jellyfin in .env:
 docker compose --profile jellyfin up -d
+# if TDARR_MODE=docker in .env:
+docker compose --profile tdarr-docker up -d
+# if TDARR_MODE=native in .env (default):
+bash scripts/setup-tdarr-native.sh
 docker compose --profile autoupdate up -d watchtower  # optional auto-updates
 bash scripts/configure.sh
 bash scripts/install-launchd-jobs.sh
@@ -247,6 +268,8 @@ bash scripts/vpn-mode.sh nord
 | `scripts/auto-heal.sh` | Hourly self-healer |
 | `scripts/backup.sh` | Config and database backup |
 | `scripts/download-watchdog.py` | Stalled torrent detection and auto-fix |
+| `scripts/setup-tdarr-native.sh` | Installs/updates native Tdarr and launchd services |
+| `scripts/tdarr-apply-quality-flow.sh` | Loads quality-first HEVC flow preset into Tdarr DB |
 | `scripts/vpn-mode.sh` | Manual VPN provider switcher |
 | `scripts/vpn-failover-watch.sh` | Automatic VPN failover daemon |
 | `scripts/run-kometa.sh` | Trigger Kometa metadata run |
@@ -263,6 +286,7 @@ Pre-configured templates in `configs/` (copy to your Media folder after first bo
 
 - **recyclarr.yml** - TRaSH Guides quality profiles for Radarr and Sonarr
 - **kometa.yml** - Plex metadata automation (franchise collections, resolution overlays)
+- **tdarr-flow-quality-first-hevc.json** - Quality-first H.264 -> H.265 flow preset loaded by `scripts/tdarr-apply-quality-flow.sh`
 
 Recyclarr API keys are auto-injected by `scripts/configure.sh`. Kometa still needs your manual Plex token + TMDB API key.
 

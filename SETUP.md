@@ -14,7 +14,7 @@ If you already have OrbStack (or Docker Desktop) and Plex installed, you can run
 curl -fsSL https://raw.githubusercontent.com/liamvibecodes/mac-media-stack-advanced/main/bootstrap.sh | bash
 ```
 
-It will prompt you for VPN keys, configure all core services, auto-wire Recyclarr + Unpackerr API keys, and install automation jobs. You'll still need to do Step 7 for Kometa/Tdarr manual setup afterward.
+It will prompt you for VPN keys, configure all core services, auto-wire Recyclarr + Unpackerr API keys, install native Tdarr on macOS, preload the quality-first Tdarr flow, and install automation jobs. You'll still need Step 7 for Kometa and final Tdarr library mapping.
 
 To run from a local clone with custom paths:
 
@@ -82,6 +82,11 @@ This stack supports two media servers. Choose one:
 
 To use Jellyfin, pass `--jellyfin` to the bootstrap command, or set `MEDIA_SERVER=jellyfin` in your `.env` file.
 
+### Tdarr Mode
+
+`TDARR_MODE=native` is the default and recommended on macOS (more reliable for hardware decode/encode behavior and avoids Docker VM overhead).  
+If you prefer containerized Tdarr, set `TDARR_MODE=docker` in `.env` or use `--tdarr-docker` with `bootstrap.sh`.
+
 ---
 
 ## Step 2: Download and Setup
@@ -128,6 +133,18 @@ If using Jellyfin, start with the profile enabled:
 
 ```bash
 docker compose --profile jellyfin up -d
+```
+
+If using Docker Tdarr (`TDARR_MODE=docker`), also enable the Tdarr profile:
+
+```bash
+docker compose --profile tdarr-docker up -d
+```
+
+If using native Tdarr (`TDARR_MODE=native`, default), run:
+
+```bash
+bash scripts/setup-tdarr-native.sh
 ```
 
 Wait for all containers to show OK. First pull takes 3-5 GB.
@@ -236,9 +253,21 @@ Replace `YOUR_PLEX_TOKEN` and `YOUR_TMDB_API_KEY`, then save.
 ### Tdarr (transcoding)
 
 1. Open http://localhost:8265
-2. Configure your libraries (Movies: `/movies`, TV: `/tv`)
-3. Add transcode plugins based on your preference (H.265 conversion saves ~50% disk space)
-4. Set the temp/cache directory to `/temp`
+2. Add libraries:
+   - Native mode (`TDARR_MODE=native`):
+     - Movies source: `<MEDIA_DIR>/Movies`
+     - TV source: `<MEDIA_DIR>/TV Shows`
+     - Temp/cache: `<MEDIA_DIR>/tdarr-transcode-cache`
+   - Docker mode (`TDARR_MODE=docker`):
+     - Movies source: `/movies`
+     - TV source: `/tv`
+     - Temp/cache: `/temp`
+3. Assign the preloaded flow: `Quality-First HEVC (Resolution Preserving)`
+4. Keep the defaults in that flow for quality-first behavior:
+   - No resolution downscale
+   - No hard bitrate cap
+   - H.264 -> H.265 (CRF 19, preset slow)
+   - Replace only when output size ratio is 25-99%
 
 ### Unpackerr
 
@@ -259,6 +288,7 @@ This installs:
 - Log prune (daily cleanup, removes logs older than 30 days)
 - Download watchdog (stalled torrent auto-fix every 15 min)
 - Kometa scheduler (metadata refresh every 4 hours)
+- Native Tdarr launchd services (when `TDARR_MODE=native`)
 
 Automation logs go to `<MEDIA_DIR>/logs/` and launchd stdout/stderr logs go to `<MEDIA_DIR>/logs/launchd/` (default `~/Media/...`).
 

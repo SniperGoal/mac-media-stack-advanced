@@ -1,6 +1,6 @@
 #!/bin/bash
 # Media Stack Setup Helper (Advanced)
-# Creates all required folders and prepares config files.
+# Creates folders, prepares .env, and seeds config templates.
 # Usage: bash scripts/setup.sh [--media-dir DIR] [--help]
 
 set -e
@@ -69,6 +69,7 @@ echo "Creating folders..."
 mkdir -p "$MEDIA_DIR"/{config,Downloads,Movies,"TV Shows",logs,state,backups,tdarr-transcode-cache}
 mkdir -p "$MEDIA_DIR"/config/{qbittorrent,prowlarr,sonarr,radarr,bazarr,seerr,kometa,recyclarr}
 mkdir -p "$MEDIA_DIR"/config/tdarr/{server,configs,logs}
+mkdir -p "$MEDIA_DIR"/config/tdarr-native/{releases}
 mkdir -p "$MEDIA_DIR"/config/jellystat/{db,backup}
 echo -e "  ${GREEN}Done${NC}"
 echo ""
@@ -99,6 +100,12 @@ if [[ -f "$SCRIPT_DIR/.env" ]]; then
         printf 'JELLYSTAT_DB_PASSWORD=%s\n' "$JELLYSTAT_DB_PASSWORD" >> "$SCRIPT_DIR/.env"
     elif grep -q "^JELLYSTAT_DB_PASSWORD=$" "$SCRIPT_DIR/.env" 2>/dev/null; then
         sed -i '' "s|^JELLYSTAT_DB_PASSWORD=$|JELLYSTAT_DB_PASSWORD=$JELLYSTAT_DB_PASSWORD|" "$SCRIPT_DIR/.env"
+    fi
+    if ! grep -q "^TDARR_MODE=" "$SCRIPT_DIR/.env" 2>/dev/null; then
+        printf 'TDARR_MODE=native\n' >> "$SCRIPT_DIR/.env"
+    fi
+    if ! grep -q "^TDARR_VERSION=" "$SCRIPT_DIR/.env" 2>/dev/null; then
+        printf 'TDARR_VERSION=\n' >> "$SCRIPT_DIR/.env"
     fi
 else
     echo "Creating .env file..."
@@ -136,7 +143,8 @@ echo ""
 echo "Next steps:"
 echo "  1. Edit .env and add your VPN keys"
 echo "  2. Run: docker compose up -d"
-echo "     (or: docker compose --profile jellyfin up -d if MEDIA_SERVER=jellyfin)"
+echo "     (add --profile jellyfin if MEDIA_SERVER=jellyfin)"
+echo "     (add --profile tdarr-docker if TDARR_MODE=docker)"
 echo "  3. Run: bash scripts/configure.sh"
 echo "  4. Edit config templates with your API keys (see SETUP.md)"
 echo ""

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Media Stack Health Check (Advanced)
-# Checks all containers including Tdarr, Recyclarr, Unpackerr, Kometa.
+# Checks container health, VPN path, and Tdarr mode (native or docker).
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -14,6 +14,10 @@ source "$SCRIPT_DIR/scripts/lib/runtime.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/.env" 2>/dev/null || true
 MEDIA_SERVER="${MEDIA_SERVER:-plex}"
+TDARR_MODE="${TDARR_MODE:-native}"
+if [[ "$TDARR_MODE" != "native" && "$TDARR_MODE" != "docker" ]]; then
+    TDARR_MODE="native"
+fi
 
 PASS=0
 FAIL=0
@@ -49,7 +53,10 @@ fi
 echo ""
 
 echo "Containers:"
-CONTAINER_LIST="gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr tdarr unpackerr recyclarr kometa tautulli lidarr tidarr"
+CONTAINER_LIST="gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr unpackerr recyclarr kometa tautulli lidarr tidarr"
+if [[ "$TDARR_MODE" == "docker" ]]; then
+    CONTAINER_LIST="$CONTAINER_LIST tdarr"
+fi
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     CONTAINER_LIST="$CONTAINER_LIST jellyfin jellystat-db jellystat"
 fi
@@ -89,8 +96,40 @@ check_service "Sonarr" "http://localhost:8989"
 check_service "Radarr" "http://localhost:7878"
 check_service "Bazarr" "http://localhost:6767"
 check_service "Seerr" "http://localhost:5055"
-check_service "Tdarr" "http://localhost:8265"
 check_service "FlareSolverr" "http://localhost:8191"
+
+echo ""
+echo "Tdarr:"
+if [[ "$TDARR_MODE" == "native" ]]; then
+    if launchctl print "gui/$UID/com.media-stack.tdarr.server" >/dev/null 2>&1; then
+        echo -e "  ${GREEN}OK${NC}  tdarr-server launchd job loaded"
+        ((PASS++))
+    else
+        echo -e "  ${RED}FAIL${NC}  tdarr-server launchd job missing"
+        ((FAIL++))
+    fi
+    if launchctl print "gui/$UID/com.media-stack.tdarr.node" >/dev/null 2>&1; then
+        echo -e "  ${GREEN}OK${NC}  tdarr-node launchd job loaded"
+        ((PASS++))
+    else
+        echo -e "  ${RED}FAIL${NC}  tdarr-node launchd job missing"
+        ((FAIL++))
+    fi
+    check_service "Tdarr UI" "http://localhost:8265"
+else
+    tdarr_state=$(docker inspect -f '{{.State.Status}}' tdarr 2>/dev/null || true)
+    if [[ -z "$tdarr_state" ]]; then
+        echo -e "  ${RED}FAIL${NC}  tdarr container not found (start with --profile tdarr-docker)"
+        ((FAIL++))
+    elif [[ "$tdarr_state" == "running" ]]; then
+        echo -e "  ${GREEN}OK${NC}  tdarr container running"
+        ((PASS++))
+    else
+        echo -e "  ${RED}FAIL${NC}  tdarr container is $tdarr_state"
+        ((FAIL++))
+    fi
+    check_service "Tdarr UI" "http://localhost:8265"
+fi
 
 # Tautulli (optional, not part of compose by default)
 if docker inspect -f '{{.State.Status}}' tautulli &>/dev/null; then

@@ -15,6 +15,7 @@ MEDIA_DIR="$HOME/Media"
 INSTALL_DIR="$HOME/mac-media-stack-advanced"
 NON_INTERACTIVE=false
 MEDIA_SERVER=plex
+TDARR_MODE=native
 
 usage() {
     cat <<EOF
@@ -24,12 +25,15 @@ Options:
   --media-dir DIR       Media root path (default: ~/Media)
   --install-dir DIR     Repo install directory (default: ~/mac-media-stack-advanced)
   --jellyfin            Use Jellyfin instead of Plex as the media server
+  --tdarr-mode MODE     Tdarr mode: native (default) or docker
+  --tdarr-docker        Shortcut for --tdarr-mode docker
   --non-interactive     Skip interactive prompts (manual Seerr wiring required)
   --help                Show this help message
 
 Examples:
   bash bootstrap.sh
   bash bootstrap.sh --media-dir /Volumes/T9/Media
+  bash bootstrap.sh --tdarr-docker
   bash bootstrap.sh --media-dir /Volumes/T9/Media --non-interactive
 EOF
 }
@@ -56,6 +60,18 @@ while [[ $# -gt 0 ]]; do
             MEDIA_SERVER=jellyfin
             shift
             ;;
+        --tdarr-mode)
+            if [[ $# -lt 2 || "$2" == --* ]]; then
+                echo "Missing value for --tdarr-mode"
+                exit 1
+            fi
+            TDARR_MODE="$2"
+            shift 2
+            ;;
+        --tdarr-docker)
+            TDARR_MODE="docker"
+            shift
+            ;;
         --non-interactive)
             NON_INTERACTIVE=true
             shift
@@ -74,6 +90,12 @@ done
 
 MEDIA_DIR="${MEDIA_DIR/#\~/$HOME}"
 INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
+
+if [[ "$TDARR_MODE" != "native" && "$TDARR_MODE" != "docker" ]]; then
+    echo -e "${RED}Invalid TDARR mode:${NC} $TDARR_MODE"
+    echo "Use --tdarr-mode native or --tdarr-mode docker"
+    exit 1
+fi
 
 echo ""
 echo "======================================="
@@ -171,6 +193,7 @@ else
         echo "  You can continue and install Plex later."
     fi
 fi
+echo -e "${GREEN}OK${NC}  Tdarr mode: $TDARR_MODE"
 
 # Check git
 if ! command -v git &>/dev/null; then
@@ -212,6 +235,11 @@ if [[ -f .env ]]; then
         sed -i '' "s|^MEDIA_SERVER=.*|MEDIA_SERVER=$MEDIA_SERVER|" .env
     else
         sed -i '' "1s|^|MEDIA_SERVER=$MEDIA_SERVER\n|" .env
+    fi
+    if grep -q '^TDARR_MODE=' .env; then
+        sed -i '' "s|^TDARR_MODE=.*|TDARR_MODE=$TDARR_MODE|" .env
+    else
+        printf '\nTDARR_MODE=%s\n' "$TDARR_MODE" >> .env
     fi
 fi
 
@@ -269,8 +297,15 @@ echo ""
 echo -e "${CYAN}Starting media stack (first run downloads ~3-5 GB)...${NC}"
 echo ""
 COMPOSE_UP_CMD="docker compose up -d"
+COMPOSE_PROFILES=()
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
-    COMPOSE_UP_CMD="docker compose --profile jellyfin up -d"
+    COMPOSE_PROFILES+=(--profile jellyfin)
+fi
+if [[ "$TDARR_MODE" == "docker" ]]; then
+    COMPOSE_PROFILES+=(--profile tdarr-docker)
+fi
+if [[ ${#COMPOSE_PROFILES[@]} -gt 0 ]]; then
+    COMPOSE_UP_CMD="docker compose ${COMPOSE_PROFILES[*]} up -d"
 fi
 if ! $COMPOSE_UP_CMD; then
     echo ""
@@ -289,9 +324,21 @@ wait_for_service "Prowlarr" "http://localhost:9696" || true
 wait_for_service "Radarr" "http://localhost:7878" || true
 wait_for_service "Sonarr" "http://localhost:8989" || true
 wait_for_service "Seerr" "http://localhost:5055" || true
-wait_for_service "Tdarr" "http://localhost:8265" || true
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     wait_for_service "Jellyfin" "http://localhost:8096/health" || true
+fi
+
+if [[ "$TDARR_MODE" == "native" ]]; then
+    echo ""
+    echo -e "${CYAN}Setting up native Tdarr...${NC}"
+    if ! bash scripts/setup-tdarr-native.sh --media-dir "$MEDIA_DIR"; then
+        echo -e "${RED}Native Tdarr setup failed.${NC}"
+        echo "Run this after fixing the issue:"
+        echo "  bash scripts/setup-tdarr-native.sh --media-dir $MEDIA_DIR"
+        exit 1
+    fi
+else
+    wait_for_service "Tdarr" "http://localhost:8265" || true
 fi
 
 # Configure
@@ -322,15 +369,26 @@ echo "  Tdarr:  http://localhost:8265"
 echo ""
 echo "  Media location: $MEDIA_DIR"
 echo ""
+
+if [[ "$TDARR_MODE" == "docker" ]]; then
+    TDARR_MOVIES_PATH="/movies"
+    TDARR_TV_PATH="/tv"
+else
+    TDARR_MOVIES_PATH="$MEDIA_DIR/Movies"
+    TDARR_TV_PATH="$MEDIA_DIR/TV Shows"
+fi
+
 echo "  Remaining manual steps:"
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     echo "    1. Complete Jellyfin setup wizard at http://localhost:8096"
     echo "       Add libraries: Movies = /data/movies, TV Shows = /data/tvshows"
-    echo "    2. Configure Tdarr at http://localhost:8265"
+    echo "    2. In Tdarr, add libraries ($TDARR_MOVIES_PATH and $TDARR_TV_PATH) and assign the preloaded"
+    echo "       'Quality-First HEVC (Resolution Preserving)' flow"
 else
     echo "    1. Set up Plex libraries (Movies: $MEDIA_DIR/Movies, TV: $MEDIA_DIR/TV Shows)"
     echo "    2. Edit $MEDIA_DIR/config/kometa/config.yml with Plex token + TMDB key"
-    echo "    3. Configure Tdarr at http://localhost:8265"
+    echo "    3. In Tdarr, add libraries ($TDARR_MOVIES_PATH and $TDARR_TV_PATH) and assign the preloaded"
+    echo "       'Quality-First HEVC (Resolution Preserving)' flow"
 fi
 echo ""
 echo "  Optional - Music (Lidarr + Tidarr):"

@@ -49,6 +49,7 @@ fi
 source "$SCRIPT_DIR/.env"
 
 MEDIA_SERVER="${MEDIA_SERVER:-plex}"
+TDARR_MODE="${TDARR_MODE:-native}"
 
 QB_PASSWORD="media$(openssl rand -hex 12)"
 CREDS_FILE="$MEDIA_DIR/state/first-run-credentials.txt"
@@ -578,4 +579,10 @@ else
     echo "  Plex:        http://localhost:32400/web"
 fi
 echo "  Tdarr:       http://localhost:8265"
+if [[ "$TDARR_MODE" == "native" ]]; then
+    echo "  Tdarr mode:  native (launchd)"
+else
+    echo "  Tdarr mode:  docker (tdarr-docker profile)"
+fi
+echo "  Tdarr flow:  Quality-First HEVC (Resolution Preserving)"
 echo ""

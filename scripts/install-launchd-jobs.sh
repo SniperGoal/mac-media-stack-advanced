@@ -29,6 +29,7 @@ usage() {
 Usage: bash scripts/install-launchd-jobs.sh
 
 Installs launchd automation jobs for auto-heal, backup, watchdog, Kometa, and log prune.
+Also ensures native Tdarr launchd services are present when TDARR_MODE=native.
 
 Options:
   --help    Show this help message
@@ -106,6 +107,16 @@ install_plist "download-watchdog" 900 "$SCRIPT_DIR/download-watchdog.py" "false"
 source "$PROJECT_DIR/.env" 2>/dev/null || true
 if [[ "${MEDIA_SERVER:-plex}" == "plex" ]]; then
     install_plist "kometa" 14400 "$SCRIPT_DIR/run-kometa.sh"
+fi
+
+if [[ "${TDARR_MODE:-native}" == "native" ]]; then
+    echo -e "  ${YELLOW}..${NC}  Ensuring native Tdarr launchd services"
+    if bash "$SCRIPT_DIR/setup-tdarr-native.sh" --media-dir "$MEDIA_DIR" --install-only --skip-flow >/dev/null 2>&1; then
+        echo -e "  ${GREEN}OK${NC}  tdarr-native launchd services ready"
+    else
+        echo -e "  ${YELLOW}WARN${NC}  Existing native Tdarr release not found; running full Tdarr native setup"
+        bash "$SCRIPT_DIR/setup-tdarr-native.sh" --media-dir "$MEDIA_DIR" --skip-flow
+    fi
 fi
 
 echo ""

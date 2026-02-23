@@ -60,12 +60,17 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 MEDIA_DIR="${MEDIA_DIR/#\~/$HOME}"
 
-# Read media server choice
+# Read media server/tdarr choices
 MEDIA_SERVER="plex"
+TDARR_MODE="native"
 if [[ -f "$ENV_FILE" ]]; then
     env_server=$(sed -n 's/^MEDIA_SERVER=//p' "$ENV_FILE" | head -1)
     if [[ -n "$env_server" ]]; then
         MEDIA_SERVER="$env_server"
+    fi
+    env_tdarr_mode=$(sed -n 's/^TDARR_MODE=//p' "$ENV_FILE" | head -1)
+    if [[ -n "$env_tdarr_mode" ]]; then
+        TDARR_MODE="$env_tdarr_mode"
     fi
 fi
 
@@ -82,7 +87,7 @@ echo -e "  ${CYAN}Info${NC}  Project: $SCRIPT_DIR"
 echo -e "  ${CYAN}Info${NC}  Media dir: $MEDIA_DIR"
 echo ""
 
-for cmd in docker curl grep sed awk python3; do
+for cmd in docker curl grep sed awk python3 jq unzip sqlite3; do
     if command -v "$cmd" >/dev/null 2>&1; then
         ok "Command found: $cmd"
     else
@@ -129,6 +134,7 @@ for dir in \
     "$MEDIA_DIR/config/recyclarr" \
     "$MEDIA_DIR/config/kometa" \
     "$MEDIA_DIR/config/tdarr" \
+    "$MEDIA_DIR/config/tdarr-native" \
     "$MEDIA_DIR/tdarr-transcode-cache" \
     "$MEDIA_DIR/backups"; do
     if [[ -d "$dir" ]]; then
@@ -152,6 +158,12 @@ if [[ -f "$SCRIPT_DIR/docker-compose.yml" ]] && [[ -f "$ENV_FILE" ]]; then
             fail "Nord fallback compose override failed to render"
         fi
     fi
+
+    if docker compose -f "$SCRIPT_DIR/docker-compose.yml" --profile tdarr-docker config >/dev/null 2>&1; then
+        ok "docker-compose.yml renders with tdarr-docker profile"
+    else
+        fail "docker-compose.yml failed to render tdarr-docker profile"
+    fi
 fi
 
 PORTS="5055 9696 8989 7878 8080 6767 8191 8265 8266"
@@ -168,6 +180,20 @@ for port in $PORTS; do
         warn "Port $port already in use by $owner"
     fi
 done
+
+if [[ "$TDARR_MODE" == "native" || "$TDARR_MODE" == "docker" ]]; then
+    ok "Tdarr mode: $TDARR_MODE"
+else
+    fail "Invalid TDARR_MODE '$TDARR_MODE' (expected native or docker)"
+fi
+
+if [[ "$TDARR_MODE" == "native" ]]; then
+    if command -v launchctl >/dev/null 2>&1; then
+        ok "launchctl available for native Tdarr"
+    else
+        fail "launchctl missing (required for TDARR_MODE=native)"
+    fi
+fi
 
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     ok "Media server: Jellyfin (Docker)"
