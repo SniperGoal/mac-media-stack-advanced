@@ -24,7 +24,6 @@
   <img src="https://img.shields.io/badge/rclone-2596be?style=flat-square&logo=rclone&logoColor=white" />
   <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" />
   <br><br>
-  <img src="https://img.shields.io/github/stars/liamvibecodes/mac-media-stack-advanced?style=flat-square&color=yellow" />
   <img src="https://img.shields.io/github/license/liamvibecodes/mac-media-stack-advanced?style=flat-square" />
   <br><br>
 </div>
