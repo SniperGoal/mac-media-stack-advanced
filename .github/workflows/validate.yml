@@ -64,4 +64,5 @@ jobs:
           echo 'RCLONE_DIR_CACHE_TIME=30s' >> .env
           docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage config >/dev/null
           docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile jellyfin config >/dev/null
+          docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile tdarr-docker config >/dev/null
           rm .env

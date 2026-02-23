@@ -115,8 +115,6 @@ if [[ "${CLOUD_STORAGE_ENABLED:-}" == "true" ]]; then
     upload_interval=21600
     if [[ "${STORAGE_TYPE:-}" == "nas" ]]; then
         upload_interval=7200
-    elif [[ -n "${CLOUD_UPLOAD_MIN_AGE_HOURS:-}" ]]; then
-        upload_interval=$((CLOUD_UPLOAD_MIN_AGE_HOURS * 3600))
     fi
     install_plist "cloud-upload" "$upload_interval" "$SCRIPT_DIR/cloud-upload.sh" "false"
 fi

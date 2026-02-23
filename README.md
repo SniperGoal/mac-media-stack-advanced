@@ -120,7 +120,7 @@ If you also use optional profiles, append them to the same command (example: `--
 Or include it in bootstrap:
 
 ```bash
-bash bootstrap.sh --cloud-storage
+bash bootstrap.sh --jellyfin --cloud-storage
 ```
 
 ### NAS Quick Start
@@ -133,7 +133,7 @@ docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profi
 Or include it in bootstrap:
 
 ```bash
-bash bootstrap.sh --nas-storage
+bash bootstrap.sh --jellyfin --nas-storage
 ```
 
 ### How It Works
@@ -176,7 +176,7 @@ cloud-upload  -->  periodically moves stable files to remote (6h/24h for cloud, 
 
 **Platform notes:**
 - **TrueNAS:** Media path is typically `/mnt/pool/dataset/media`
-- **Synology:** Path is `/volume1/media`. The setup wizard auto-adds `--sftp-path-override` for SFTP chroot compatibility.
+- **Synology:** Path is `/volume1/media`. The setup wizard auto-adds a `path_override` config (equivalent to `--sftp-path-override`) for SFTP chroot compatibility.
 - **Unraid:** Path is `/mnt/user/media`
 
 **Performance:** rclone SFTP delivers ~100MB/s on Gigabit LAN, adequate for multiple concurrent 4K streams.
@@ -275,7 +275,7 @@ bash bootstrap.sh --jellyfin
 NAS storage via SFTP (TrueNAS, Synology, Unraid):
 
 ```bash
-bash bootstrap.sh --nas-storage
+bash bootstrap.sh --jellyfin --nas-storage
 ```
 
 ## Update Existing Clone

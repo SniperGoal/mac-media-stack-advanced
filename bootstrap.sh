@@ -372,12 +372,20 @@ COMPOSE_PROFILES=()
 
 # Detect cloud storage from .env (may have been set by setup-cloud-storage.sh or flag)
 CLOUD_ENABLED_ENV=""
+STORAGE_TYPE_ENV=""
 if [[ -f .env ]]; then
     CLOUD_ENABLED_ENV=$(sed -n 's/^CLOUD_STORAGE_ENABLED=//p' .env | head -1)
+    STORAGE_TYPE_ENV=$(sed -n 's/^STORAGE_TYPE=//p' .env | head -1)
 fi
 CLOUD_ACTIVE=false
 if [[ "$CLOUD_STORAGE" == true || "$CLOUD_ENABLED_ENV" == "true" ]]; then
     CLOUD_ACTIVE=true
+fi
+STORAGE_TYPE_EFFECTIVE="$STORAGE_TYPE_ENV"
+if [[ "$NAS_STORAGE" == true ]]; then
+    STORAGE_TYPE_EFFECTIVE="nas"
+elif [[ -z "$STORAGE_TYPE_EFFECTIVE" && "$CLOUD_ACTIVE" == true ]]; then
+    STORAGE_TYPE_EFFECTIVE="cloud"
 fi
 
 if [[ "$CLOUD_ACTIVE" == true && "$MEDIA_SERVER" == "plex" ]]; then
@@ -388,7 +396,11 @@ if [[ "$CLOUD_ACTIVE" == true && "$MEDIA_SERVER" == "plex" ]]; then
     echo "  Native Plex cannot read those merged cloud mount paths on macOS."
     echo ""
     echo "Use one of these options:"
-    echo "  1. Re-run with Jellyfin: bash bootstrap.sh --jellyfin --cloud-storage"
+    if [[ "$STORAGE_TYPE_EFFECTIVE" == "nas" ]]; then
+        echo "  1. Re-run with Jellyfin: bash bootstrap.sh --jellyfin --nas-storage"
+    else
+        echo "  1. Re-run with Jellyfin: bash bootstrap.sh --jellyfin --cloud-storage"
+    fi
     echo "  2. Disable cloud storage and keep Plex: set CLOUD_STORAGE_ENABLED=false in .env"
     exit 1
 fi
@@ -503,7 +515,7 @@ echo "  Remaining manual steps:"
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     echo "    1. Complete Jellyfin setup wizard at http://localhost:8096"
     if [[ "$CLOUD_ACTIVE" == true ]]; then
-        echo "       Add libraries: Movies = /data/movies, TV Shows = /data/tvshows (merged cloud/local)"
+        echo "       Add libraries: Movies = /data/movies, TV Shows = /data/tvshows (merged remote/local)"
     else
         echo "       Add libraries: Movies = /data/movies, TV Shows = /data/tvshows"
     fi
@@ -517,7 +529,7 @@ else
 fi
 echo ""
 if [[ "$CLOUD_ACTIVE" == true ]]; then
-    if [[ "$NAS_STORAGE" == true ]]; then
+    if [[ "$STORAGE_TYPE_EFFECTIVE" == "nas" ]]; then
         echo "  NAS storage: enabled (rclone SFTP + mergerfs)"
         echo "  Uploads run every 2 hours via launchd"
     else

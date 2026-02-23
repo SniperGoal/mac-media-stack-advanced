@@ -363,7 +363,7 @@ The setup wizard will:
 docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile jellyfin --profile tdarr-docker up -d
 ```
 
-Or pass `--cloud-storage` to `bootstrap.sh` for a full install.
+Or pass `--jellyfin --cloud-storage` to `bootstrap.sh` for a full install.
 
 ### NAS Setup (TrueNAS, Synology, Unraid)
 
@@ -375,7 +375,7 @@ The wizard will:
 1. Ask for your NAS hostname/IP and SSH username
 2. Offer to generate an SSH key pair (recommended), use an existing key, or use password auth
 3. Ask for your media path with platform-specific examples
-4. Auto-detect Synology paths and add `--sftp-path-override` for SFTP chroot compatibility
+4. Auto-detect Synology paths and add `path_override` (same effect as `--sftp-path-override`) for SFTP chroot compatibility
 5. Test connectivity before writing the config
 6. Write NAS-optimized VFS cache settings to `.env`
 
@@ -390,13 +390,13 @@ The wizard will:
 docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile jellyfin --profile tdarr-docker up -d
 ```
 
-Or use bootstrap: `bash bootstrap.sh --nas-storage`
+Or use bootstrap: `bash bootstrap.sh --jellyfin --nas-storage`
 
 ### How it works
 
-- **Write path:** Downloads land on local disk (fast). Every 6 hours, `cloud-upload.sh` moves files older than 24h to the cloud via `rclone move`.
-- **Read path:** Docker services (Jellyfin, Arr apps, Tdarr Docker) read from the mergerfs overlay, which transparently serves files from local or cloud storage.
-- **VFS cache:** rclone caches recently accessed cloud files locally (default 50GB, 72h max age). Adjust `RCLONE_VFS_CACHE_MAX_SIZE` in `.env` based on your available disk space.
+- **Write path:** Downloads land on local disk (fast). `cloud-upload.sh` periodically moves stable files to remote storage (cloud default: every 6h; NAS default: every 2h).
+- **Read path:** Docker services (Jellyfin, Arr apps, Tdarr Docker) read from the mergerfs overlay, which transparently serves files from local or remote storage.
+- **VFS cache:** rclone caches recently accessed remote files locally. Cloud defaults are larger (50GB/72h), NAS defaults are smaller/faster (10GB/1h).
 
 ### Library paths when cloud storage is enabled
 

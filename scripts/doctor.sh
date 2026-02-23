@@ -9,6 +9,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
+RCLONE_IMAGE="${RCLONE_IMAGE:-rclone/rclone@sha256:c08f5e100e1c4fa4deb1315b56a47c0cc0e765222b7c0834bc93305f2e4d85c0}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
@@ -243,6 +244,10 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 if [[ "$STORAGE_TYPE" == "nas" ]]; then
+    if [[ "$CLOUD_STORAGE_ENABLED" != "true" ]]; then
+        warn "STORAGE_TYPE=nas is set but CLOUD_STORAGE_ENABLED is not true"
+    fi
+
     nas_key="$MEDIA_DIR/config/rclone/nas_key.pem"
     if [[ -f "$nas_key" ]]; then
         ok "NAS SSH key exists"
@@ -259,10 +264,15 @@ if [[ "$STORAGE_TYPE" == "nas" ]]; then
     # Test NAS connectivity
     rclone_conf="$MEDIA_DIR/config/rclone/rclone.conf"
     env_remote=$(sed -n 's/^RCLONE_REMOTE=//p' "$ENV_FILE" | head -1)
+    env_remote_path=$(sed -n 's/^RCLONE_REMOTE_PATH=//p' "$ENV_FILE" | head -1)
     if [[ -n "$env_remote" && -f "$rclone_conf" ]]; then
+        nas_target="${env_remote}:"
+        if [[ -n "$env_remote_path" ]]; then
+            nas_target="${env_remote}:${env_remote_path}"
+        fi
         if docker run --rm \
             -v "$MEDIA_DIR/config/rclone:/config/rclone" \
-            rclone/rclone lsd "${env_remote}:" \
+            "$RCLONE_IMAGE" lsd "$nas_target" \
             --contimeout 10s 2>/dev/null; then
             ok "NAS reachable via rclone SFTP"
         else
