@@ -1,7 +1,7 @@
 #!/bin/bash
 # Media Stack Auto-Configurator (Advanced)
-# Identical to the basic version. Run ONCE after "docker compose up -d".
-# Usage: bash scripts/configure.sh [--non-interactive] [--help]
+# Run once after "docker compose up -d". Use --force to re-run explicitly.
+# Usage: bash scripts/configure.sh [--non-interactive] [--skip-wait] [--force] [--help]
 
 set -euo pipefail
 
@@ -13,6 +13,8 @@ NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 NON_INTERACTIVE=false
+SKIP_WAIT=false
+FORCE=false
 
 usage() {
     cat <<EOF
@@ -20,6 +22,8 @@ Usage: bash scripts/configure.sh [OPTIONS]
 
 Options:
   --non-interactive   Skip interactive Seerr Plex login wiring
+  --skip-wait         Assume services are already up (skip readiness checks)
+  --force             Re-run even if configure.done marker exists
   --help              Show this help message
 EOF
 }
@@ -28,6 +32,14 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --non-interactive)
             NON_INTERACTIVE=true
+            shift
+            ;;
+        --skip-wait)
+            SKIP_WAIT=true
+            shift
+            ;;
+        --force)
+            FORCE=true
             shift
             ;;
         --help|-h)
@@ -53,10 +65,17 @@ TDARR_MODE="${TDARR_MODE:-native}"
 
 QB_PASSWORD="media$(openssl rand -hex 12)"
 CREDS_FILE="$MEDIA_DIR/state/first-run-credentials.txt"
+CONFIG_DONE_FILE="$MEDIA_DIR/state/configure.done"
 
 log() { echo -e "  ${GREEN}OK${NC}  $1"; }
 warn() { echo -e "  ${YELLOW}..${NC}  $1"; }
 fail() { echo -e "  ${RED}FAIL${NC}  $1"; }
+
+if [[ -f "$CONFIG_DONE_FILE" && "$FORCE" != true ]]; then
+    warn "Configuration already completed ($CONFIG_DONE_FILE)."
+    warn "Use --force to re-run configuration."
+    exit 0
+fi
 
 save_credentials() {
     mkdir -p "$(dirname "$CREDS_FILE")"
@@ -70,6 +89,17 @@ Sonarr API Key: $SONARR_KEY
 Prowlarr API Key: $PROWLARR_KEY
 EOF
     chmod 600 "$CREDS_FILE"
+}
+
+mark_config_done() {
+    mkdir -p "$(dirname "$CONFIG_DONE_FILE")"
+    cat > "$CONFIG_DONE_FILE" <<EOF
+# Media Stack configure completion marker
+timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+media_server=$MEDIA_SERVER
+tdarr_mode=$TDARR_MODE
+EOF
+    chmod 600 "$CONFIG_DONE_FILE"
 }
 
 set_env_key() {
@@ -193,35 +223,96 @@ api_post_form() {
     return 1
 }
 
-wait_for_service() {
-    local name="$1" url="$2" max_attempts="${3:-30}" attempt=0
-    warn "Waiting for $name..."
-    while [[ $attempt -lt $max_attempts ]]; do
-        status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 "$url" 2>/dev/null || true)
-        if [[ "$status" =~ ^(200|301|302|401|403)$ ]]; then
-            log "$name is ready"
+wait_for_services_batch() {
+    local timeout_seconds="${1:-60}"
+    shift
+
+    local names=()
+    local urls=()
+    while [[ $# -gt 1 ]]; do
+        names+=("$1")
+        urls+=("$2")
+        shift 2
+    done
+
+    local total="${#names[@]}"
+    local ready=()
+    local ready_count=0
+    local start now elapsed i status
+    for ((i = 0; i < total; i++)); do
+        ready[$i]=0
+    done
+
+    warn "Waiting for services..."
+    start=$(date +%s)
+    while true; do
+        for ((i = 0; i < total; i++)); do
+            if [[ "${ready[$i]}" -eq 1 ]]; then
+                continue
+            fi
+            status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 "${urls[$i]}" 2>/dev/null || true)
+            if [[ "$status" =~ ^(200|301|302|401|403)$ ]]; then
+                ready[$i]=1
+                ready_count=$((ready_count + 1))
+                log "${names[$i]} is ready"
+            fi
+        done
+
+        if [[ "$ready_count" -eq "$total" ]]; then
             return 0
         fi
-        sleep 2
-        ((attempt++))
-    done
-    fail "$name didn't start after $((max_attempts * 2)) seconds"
-    return 1
-}
 
-get_api_key() {
-    local service="$1"
-    local config_path="$MEDIA_DIR/config/$service/config.xml"
-    local max_attempts=30 attempt=0
-    while [[ $attempt -lt $max_attempts ]]; do
-        if [[ -f "$config_path" ]]; then
-            local key=$(grep -o '<ApiKey>[^<]*</ApiKey>' "$config_path" 2>/dev/null | sed 's/<[^>]*>//g')
-            if [[ -n "$key" ]]; then echo "$key"; return 0; fi
+        now=$(date +%s)
+        elapsed=$((now - start))
+        if [[ "$elapsed" -ge "$timeout_seconds" ]]; then
+            local pending=()
+            for ((i = 0; i < total; i++)); do
+                if [[ "${ready[$i]}" -eq 0 ]]; then
+                    pending+=("${names[$i]}")
+                fi
+            done
+            fail "Timed out waiting for services after ${timeout_seconds}s: ${pending[*]}"
+            return 1
         fi
         sleep 2
+    done
+}
+
+get_api_keys_batch() {
+    local max_attempts=30
+    local attempt=0
+    local radarr_cfg="$MEDIA_DIR/config/radarr/config.xml"
+    local sonarr_cfg="$MEDIA_DIR/config/sonarr/config.xml"
+    local prowlarr_cfg="$MEDIA_DIR/config/prowlarr/config.xml"
+
+    RADARR_KEY=""
+    SONARR_KEY=""
+    PROWLARR_KEY=""
+
+    while [[ $attempt -lt $max_attempts ]]; do
+        if [[ -z "$RADARR_KEY" && -f "$radarr_cfg" ]]; then
+            RADARR_KEY=$(grep -o '<ApiKey>[^<]*</ApiKey>' "$radarr_cfg" 2>/dev/null | sed 's/<[^>]*>//g' | head -1)
+        fi
+        if [[ -z "$SONARR_KEY" && -f "$sonarr_cfg" ]]; then
+            SONARR_KEY=$(grep -o '<ApiKey>[^<]*</ApiKey>' "$sonarr_cfg" 2>/dev/null | sed 's/<[^>]*>//g' | head -1)
+        fi
+        if [[ -z "$PROWLARR_KEY" && -f "$prowlarr_cfg" ]]; then
+            PROWLARR_KEY=$(grep -o '<ApiKey>[^<]*</ApiKey>' "$prowlarr_cfg" 2>/dev/null | sed 's/<[^>]*>//g' | head -1)
+        fi
+
+        if [[ -n "$RADARR_KEY" && -n "$SONARR_KEY" && -n "$PROWLARR_KEY" ]]; then
+            return 0
+        fi
+
+        sleep 2
         ((attempt++))
     done
-    fail "Could not read API key for $service"
+
+    local missing=()
+    [[ -z "$RADARR_KEY" ]] && missing+=("radarr")
+    [[ -z "$SONARR_KEY" ]] && missing+=("sonarr")
+    [[ -z "$PROWLARR_KEY" ]] && missing+=("prowlarr")
+    fail "Could not read API keys: ${missing[*]}"
     return 1
 }
 
@@ -234,23 +325,26 @@ echo ""
 # 1. Wait for services
 echo -e "${CYAN}[1/6] Waiting for services...${NC}"
 echo ""
-wait_for_service "qBittorrent" "http://localhost:8080"
-wait_for_service "Prowlarr" "http://localhost:9696"
-wait_for_service "Radarr" "http://localhost:7878"
-wait_for_service "Sonarr" "http://localhost:8989"
-wait_for_service "Bazarr" "http://localhost:6767"
-wait_for_service "FlareSolverr" "http://localhost:8191"
-wait_for_service "Seerr" "http://localhost:5055"
+if [[ "$SKIP_WAIT" == true ]]; then
+    warn "Skipping service readiness checks (--skip-wait)"
+else
+    wait_for_services_batch 60 \
+        "qBittorrent" "http://localhost:8080" \
+        "Prowlarr" "http://localhost:9696" \
+        "Radarr" "http://localhost:7878" \
+        "Sonarr" "http://localhost:8989" \
+        "Bazarr" "http://localhost:6767" \
+        "FlareSolverr" "http://localhost:8191" \
+        "Seerr" "http://localhost:5055"
+fi
 echo ""
 
 # 2. Extract API keys
 echo -e "${CYAN}[2/6] Reading API keys...${NC}"
 echo ""
-RADARR_KEY=$(get_api_key "radarr")
+get_api_keys_batch
 log "Radarr API key: ${RADARR_KEY:0:8}..."
-SONARR_KEY=$(get_api_key "sonarr")
 log "Sonarr API key: ${SONARR_KEY:0:8}..."
-PROWLARR_KEY=$(get_api_key "prowlarr")
 log "Prowlarr API key: ${PROWLARR_KEY:0:8}..."
 echo ""
 
@@ -266,35 +360,46 @@ QB_TEMP_PASS=$(docker logs qbittorrent 2>&1 | grep -o 'temporary password is pro
 if [[ -z "$QB_TEMP_PASS" ]]; then
     QB_TEMP_PASS=$(docker logs qbittorrent 2>&1 | sed -n 's/.*password: \([^[:space:]]*\).*/\1/p' | tail -1)
 fi
-if [[ -z "$QB_TEMP_PASS" ]]; then
-    QB_TEMP_PASS="adminadmin"
+
+qb_saved_pass=""
+if [[ -f "$CREDS_FILE" ]]; then
+    qb_saved_pass=$(sed -n 's/^qBittorrent Password: //p' "$CREDS_FILE" | head -1)
 fi
 
-QB_COOKIE=$(curl -s -c - "http://localhost:8080/api/v2/auth/login" \
-    --data-urlencode "username=admin" \
-    --data-urlencode "password=$QB_TEMP_PASS" 2>/dev/null | grep SID | awk '{print $NF}')
+QB_COOKIE=""
+for candidate in "$QB_TEMP_PASS" "$qb_saved_pass" "${QBIT_PASSWORD:-}" "adminadmin"; do
+    [[ -z "$candidate" ]] && continue
+    QB_COOKIE=$(curl -s -c - "http://localhost:8080/api/v2/auth/login" \
+        --data-urlencode "username=admin" \
+        --data-urlencode "password=$candidate" 2>/dev/null | awk '/SID/ {print $NF; exit}')
+    if [[ -n "$QB_COOKIE" ]]; then
+        break
+    fi
+done
 
 if [[ -z "$QB_COOKIE" ]]; then
-    fail "Could not authenticate with qBittorrent"
-else
-    api_post_form "Password set and preferences configured" "http://localhost:8080/api/v2/app/setPreferences" "SID=$QB_COOKIE" \
-        --data-urlencode "json={
-            \"web_ui_password\": \"$QB_PASSWORD\",
-            \"max_ratio\": 0,
-            \"max_seeding_time\": 0,
-            \"max_ratio_act\": 0,
-            \"up_limit\": 1024,
-            \"save_path\": \"/downloads/complete\",
-            \"temp_path_enabled\": true,
-            \"temp_path\": \"/downloads/incomplete\",
-            \"preallocate_all\": false
-        }"
-
-    api_post_form "Download category created: radarr" "http://localhost:8080/api/v2/torrents/createCategory" "SID=$QB_COOKIE" \
-        --data-urlencode "category=radarr" --data-urlencode "savePath=/downloads/complete/radarr"
-    api_post_form "Download category created: tv-sonarr" "http://localhost:8080/api/v2/torrents/createCategory" "SID=$QB_COOKIE" \
-        --data-urlencode "category=tv-sonarr" --data-urlencode "savePath=/downloads/complete/tv-sonarr"
+    fail "Could not authenticate with qBittorrent. Aborting configuration."
+    fail "Check qBittorrent Web UI credentials and re-run configure.sh."
+    exit 1
 fi
+
+api_post_form "Password set and preferences configured" "http://localhost:8080/api/v2/app/setPreferences" "SID=$QB_COOKIE" \
+    --data-urlencode "json={
+        \"web_ui_password\": \"$QB_PASSWORD\",
+        \"max_ratio\": 0,
+        \"max_seeding_time\": 0,
+        \"max_ratio_act\": 0,
+        \"up_limit\": 1024,
+        \"save_path\": \"/downloads/complete\",
+        \"temp_path_enabled\": true,
+        \"temp_path\": \"/downloads/incomplete\",
+        \"preallocate_all\": false
+    }"
+
+api_post_form "Download category created: radarr" "http://localhost:8080/api/v2/torrents/createCategory" "SID=$QB_COOKIE" \
+    --data-urlencode "category=radarr" --data-urlencode "savePath=/downloads/complete/radarr"
+api_post_form "Download category created: tv-sonarr" "http://localhost:8080/api/v2/torrents/createCategory" "SID=$QB_COOKIE" \
+    --data-urlencode "category=tv-sonarr" --data-urlencode "savePath=/downloads/complete/tv-sonarr"
 save_credentials
 echo ""
 
@@ -553,6 +658,8 @@ PY
     echo ""
 fi
 
+mark_config_done
+
 # Print API keys for user to update config templates
 echo "=============================="
 echo -e "  ${GREEN}Configuration complete!${NC}"
@@ -565,6 +672,7 @@ echo "  Radarr API Key:   $RADARR_KEY"
 echo "  Sonarr API Key:   $SONARR_KEY"
 echo "  Prowlarr API Key: $PROWLARR_KEY"
 echo "  Saved credentials: $CREDS_FILE"
+echo "  Configure marker:  $CONFIG_DONE_FILE"
 echo ""
 echo -e "  ${YELLOW}Auto-wired:${NC} Recyclarr + Unpackerr API keys"
 if [[ "$MEDIA_SERVER" == "plex" ]]; then

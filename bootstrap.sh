@@ -18,6 +18,7 @@ MEDIA_SERVER=plex
 TDARR_MODE=native
 CLOUD_STORAGE=false
 NAS_STORAGE=false
+FORCE_CONFIGURE=false
 
 usage() {
     cat <<EOF
@@ -31,6 +32,7 @@ Options:
   --tdarr-docker        Shortcut for --tdarr-mode docker
   --cloud-storage       Enable cloud storage (rclone + mergerfs)
   --nas-storage         Enable NAS storage via SFTP (rclone + mergerfs)
+  --force-configure     Re-run configure.sh even if configure.done exists
   --non-interactive     Skip interactive prompts (manual Seerr wiring required)
   --help                Show this help message
 
@@ -40,6 +42,7 @@ Examples:
   bash bootstrap.sh --tdarr-docker
   bash bootstrap.sh --jellyfin --cloud-storage --tdarr-docker
   bash bootstrap.sh --jellyfin --nas-storage --tdarr-docker
+  bash bootstrap.sh --force-configure
   bash bootstrap.sh --media-dir /Volumes/T9/Media --non-interactive
 EOF
 }
@@ -85,6 +88,10 @@ while [[ $# -gt 0 ]]; do
         --nas-storage)
             NAS_STORAGE=true
             CLOUD_STORAGE=true
+            shift
+            ;;
+        --force-configure)
+            FORCE_CONFIGURE=true
             shift
             ;;
         --non-interactive)
@@ -219,6 +226,60 @@ wait_for_healthy_container() {
 
     echo -e "  ${YELLOW}WARN${NC}  $service is not healthy yet (continuing anyway)"
     return 1
+}
+
+wait_for_services_batch() {
+    local timeout_seconds="${1:-90}"
+    shift
+    local names=()
+    local urls=()
+    local ready=()
+    local total ready_count start now elapsed i status
+
+    while [[ $# -gt 1 ]]; do
+        names+=("$1")
+        urls+=("$2")
+        shift 2
+    done
+
+    total="${#names[@]}"
+    ready_count=0
+    for ((i = 0; i < total; i++)); do
+        ready[$i]=0
+    done
+
+    start=$(date +%s)
+    while true; do
+        for ((i = 0; i < total; i++)); do
+            if [[ "${ready[$i]}" -eq 1 ]]; then
+                continue
+            fi
+            status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 "${urls[$i]}" 2>/dev/null || true)
+            if [[ "$status" =~ ^(200|301|302|401|403)$ ]]; then
+                ready[$i]=1
+                ready_count=$((ready_count + 1))
+                echo -e "  ${GREEN}OK${NC}  ${names[$i]} is reachable"
+            fi
+        done
+
+        if [[ "$ready_count" -eq "$total" ]]; then
+            return 0
+        fi
+
+        now=$(date +%s)
+        elapsed=$((now - start))
+        if [[ "$elapsed" -ge "$timeout_seconds" ]]; then
+            local pending=()
+            for ((i = 0; i < total; i++)); do
+                if [[ "${ready[$i]}" -eq 0 ]]; then
+                    pending+=("${names[$i]}")
+                fi
+            done
+            echo -e "  ${YELLOW}WARN${NC}  Timed out waiting after ${timeout_seconds}s: ${pending[*]}"
+            return 1
+        fi
+        sleep 2
+    done
 }
 
 INSTALLED_RUNTIME=$(detect_installed_runtime)
@@ -442,14 +503,20 @@ fi
 
 echo ""
 echo "Waiting for core services..."
-wait_for_service "qBittorrent" "http://localhost:8080" || true
-wait_for_service "Prowlarr" "http://localhost:9696" || true
-wait_for_service "Radarr" "http://localhost:7878" || true
-wait_for_service "Sonarr" "http://localhost:8989" || true
-wait_for_service "Seerr" "http://localhost:5055" || true
+core_service_checks=(
+    "qBittorrent" "http://localhost:8080"
+    "Prowlarr" "http://localhost:9696"
+    "Radarr" "http://localhost:7878"
+    "Sonarr" "http://localhost:8989"
+    "Seerr" "http://localhost:5055"
+)
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
-    wait_for_service "Jellyfin" "http://localhost:8096/health" || true
+    core_service_checks+=("Jellyfin" "http://localhost:8096/health")
 fi
+if [[ "$TDARR_MODE" == "docker" ]]; then
+    core_service_checks+=("Tdarr" "http://localhost:8265")
+fi
+wait_for_services_batch 90 "${core_service_checks[@]}" || true
 
 if [[ "$CLOUD_ACTIVE" == true ]]; then
     echo ""
@@ -467,17 +534,18 @@ if [[ "$TDARR_MODE" == "native" ]]; then
         echo "  bash scripts/setup-tdarr-native.sh --media-dir $MEDIA_DIR"
         exit 1
     fi
-else
-    wait_for_service "Tdarr" "http://localhost:8265" || true
 fi
 
 # Configure
 echo ""
+CONFIG_ARGS=(--skip-wait)
 if [[ "$NON_INTERACTIVE" == true ]]; then
-    bash scripts/configure.sh --non-interactive
-else
-    bash scripts/configure.sh
+    CONFIG_ARGS+=(--non-interactive)
 fi
+if [[ "$FORCE_CONFIGURE" == true ]]; then
+    CONFIG_ARGS+=(--force)
+fi
+bash scripts/configure.sh "${CONFIG_ARGS[@]}"
 
 # Install automation
 echo ""

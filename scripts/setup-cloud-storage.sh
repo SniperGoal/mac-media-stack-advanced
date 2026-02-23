@@ -313,11 +313,10 @@ if [[ -f "$RCLONE_CONF" ]]; then
     echo ""
 else
     if [[ "$NON_INTERACTIVE" == true ]]; then
-        echo -e "${YELLOW}WARN${NC}  No rclone.conf found. Create one manually at:"
+        echo -e "${RED}Error:${NC} Non-interactive mode requires rclone.conf at:"
         echo "  $RCLONE_CONF"
-        echo ""
-        echo "  Or copy the example:"
-        echo "  cp $SCRIPT_DIR/configs/rclone.conf.example $RCLONE_CONF"
+        echo "Copy a working config first, then re-run."
+        exit 1
     else
         echo "No rclone.conf found. How would you like to configure your cloud remote?"
         echo ""
@@ -375,7 +374,15 @@ if [[ "$STORAGE_TYPE" != "nas" && -z "$RCLONE_REMOTE" && "$NON_INTERACTIVE" == f
     echo ""
 fi
 
+if [[ -z "$RCLONE_REMOTE" && "$NON_INTERACTIVE" == true && -f "$RCLONE_CONF" ]]; then
+    RCLONE_REMOTE="$(sed -n 's/^\[\(.*\)\]$/\1/p' "$RCLONE_CONF" | head -1)"
+fi
+
 if [[ -z "$RCLONE_REMOTE" ]]; then
+    if [[ "$NON_INTERACTIVE" == true ]]; then
+        echo -e "${RED}Error:${NC} No remote configured. Set RCLONE_REMOTE in .env (or rclone.conf) before non-interactive setup."
+        exit 1
+    fi
     echo -e "${YELLOW}WARN${NC}  No remote configured. Set RCLONE_REMOTE in .env before starting."
 else
     echo -e "  Remote: ${GREEN}${RCLONE_REMOTE}:${RCLONE_REMOTE_PATH}${NC}"
