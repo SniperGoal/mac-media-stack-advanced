@@ -101,15 +101,38 @@ check_service "FlareSolverr" "http://localhost:8191"
 echo ""
 echo "Tdarr:"
 if [[ "$TDARR_MODE" == "native" ]]; then
-    if launchctl print "gui/$UID/com.media-stack.tdarr.server" >/dev/null 2>&1; then
-        echo -e "  ${GREEN}OK${NC}  tdarr-server launchd job loaded"
+    tdarr_server_label=""
+    tdarr_node_label=""
+
+    for candidate in com.media-stack.tdarr.server; do
+        if launchctl print "gui/$UID/$candidate" >/dev/null 2>&1; then
+            tdarr_server_label="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$tdarr_server_label" ]]; then
+        tdarr_server_label="$(launchctl list 2>/dev/null | awk 'NR>1 {print $3}' | grep -E '\.tdarr\.server$' | head -1 || true)"
+    fi
+
+    for candidate in com.media-stack.tdarr.node; do
+        if launchctl print "gui/$UID/$candidate" >/dev/null 2>&1; then
+            tdarr_node_label="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$tdarr_node_label" ]]; then
+        tdarr_node_label="$(launchctl list 2>/dev/null | awk 'NR>1 {print $3}' | grep -E '\.tdarr\.node$' | head -1 || true)"
+    fi
+
+    if [[ -n "$tdarr_server_label" ]]; then
+        echo -e "  ${GREEN}OK${NC}  tdarr-server launchd job loaded ($tdarr_server_label)"
         ((PASS++))
     else
         echo -e "  ${RED}FAIL${NC}  tdarr-server launchd job missing"
         ((FAIL++))
     fi
-    if launchctl print "gui/$UID/com.media-stack.tdarr.node" >/dev/null 2>&1; then
-        echo -e "  ${GREEN}OK${NC}  tdarr-node launchd job loaded"
+    if [[ -n "$tdarr_node_label" ]]; then
+        echo -e "  ${GREEN}OK${NC}  tdarr-node launchd job loaded ($tdarr_node_label)"
         ((PASS++))
     else
         echo -e "  ${RED}FAIL${NC}  tdarr-node launchd job missing"

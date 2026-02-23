@@ -84,19 +84,58 @@ for name in $CONTAINERS; do
 done
 
 if [[ "$TDARR_MODE" == "native" ]]; then
+    tdarr_server_label=""
+    tdarr_node_label=""
+    for candidate in com.media-stack.tdarr.server; do
+        if launchctl print "gui/$UID/$candidate" >/dev/null 2>&1; then
+            tdarr_server_label="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$tdarr_server_label" ]]; then
+        tdarr_server_label="$(launchctl list 2>/dev/null | awk 'NR>1 {print $3}' | grep -E '\.tdarr\.server$' | head -1 || true)"
+    fi
+
+    for candidate in com.media-stack.tdarr.node; do
+        if launchctl print "gui/$UID/$candidate" >/dev/null 2>&1; then
+            tdarr_node_label="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$tdarr_node_label" ]]; then
+        tdarr_node_label="$(launchctl list 2>/dev/null | awk 'NR>1 {print $3}' | grep -E '\.tdarr\.node$' | head -1 || true)"
+    fi
+
     tdarr_ok=true
-    if ! launchctl print "gui/$UID/com.media-stack.tdarr.server" >/dev/null 2>&1; then
+    if [[ -z "$tdarr_server_label" ]]; then
         tdarr_ok=false
         log "WARN: tdarr-server launchd job missing. Attempting load..."
-        launchctl load "$HOME/Library/LaunchAgents/com.media-stack.tdarr.server.plist" >> "$LOG" 2>&1 || true
-        launchctl kickstart -k "gui/$UID/com.media-stack.tdarr.server" >> "$LOG" 2>&1 || true
+        if [[ -f "$HOME/Library/LaunchAgents/com.media-stack.tdarr.server.plist" ]]; then
+            server_plist="$HOME/Library/LaunchAgents/com.media-stack.tdarr.server.plist"
+        else
+            server_plist="$(ls "$HOME/Library/LaunchAgents/"*.tdarr.server.plist 2>/dev/null | head -1 || true)"
+        fi
+        if [[ -n "${server_plist:-}" ]]; then
+            tdarr_server_label="$(basename "$server_plist" .plist)"
+            launchctl load "$server_plist" >> "$LOG" 2>&1 || true
+            launchctl kickstart -k "gui/$UID/$tdarr_server_label" >> "$LOG" 2>&1 || true
+        fi
         ((HEALED++))
     fi
-    if ! launchctl print "gui/$UID/com.media-stack.tdarr.node" >/dev/null 2>&1; then
+
+    if [[ -z "$tdarr_node_label" ]]; then
         tdarr_ok=false
         log "WARN: tdarr-node launchd job missing. Attempting load..."
-        launchctl load "$HOME/Library/LaunchAgents/com.media-stack.tdarr.node.plist" >> "$LOG" 2>&1 || true
-        launchctl kickstart -k "gui/$UID/com.media-stack.tdarr.node" >> "$LOG" 2>&1 || true
+        if [[ -f "$HOME/Library/LaunchAgents/com.media-stack.tdarr.node.plist" ]]; then
+            node_plist="$HOME/Library/LaunchAgents/com.media-stack.tdarr.node.plist"
+        else
+            node_plist="$(ls "$HOME/Library/LaunchAgents/"*.tdarr.node.plist 2>/dev/null | head -1 || true)"
+        fi
+        if [[ -n "${node_plist:-}" ]]; then
+            tdarr_node_label="$(basename "$node_plist" .plist)"
+            launchctl load "$node_plist" >> "$LOG" 2>&1 || true
+            launchctl kickstart -k "gui/$UID/$tdarr_node_label" >> "$LOG" 2>&1 || true
+        fi
         ((HEALED++))
     fi
 
@@ -107,9 +146,13 @@ if [[ "$TDARR_MODE" == "native" ]]; then
         fi
     else
         log "WARN: Tdarr UI check failed (HTTP $tdarr_http). Restarting tdarr launchd jobs..."
-        launchctl kickstart -k "gui/$UID/com.media-stack.tdarr.server" >> "$LOG" 2>&1 || true
+        if [[ -n "$tdarr_server_label" ]]; then
+            launchctl kickstart -k "gui/$UID/$tdarr_server_label" >> "$LOG" 2>&1 || true
+        fi
         sleep 3
-        launchctl kickstart -k "gui/$UID/com.media-stack.tdarr.node" >> "$LOG" 2>&1 || true
+        if [[ -n "$tdarr_node_label" ]]; then
+            launchctl kickstart -k "gui/$UID/$tdarr_node_label" >> "$LOG" 2>&1 || true
+        fi
         ((HEALED++))
     fi
 fi
