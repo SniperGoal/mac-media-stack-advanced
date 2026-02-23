@@ -109,6 +109,11 @@ if [[ "${MEDIA_SERVER:-plex}" == "plex" ]]; then
     install_plist "kometa" 14400 "$SCRIPT_DIR/run-kometa.sh"
 fi
 
+# Cloud upload (every 6 hours = 21600s)
+if [[ "${CLOUD_STORAGE_ENABLED:-}" == "true" ]]; then
+    install_plist "cloud-upload" 21600 "$SCRIPT_DIR/cloud-upload.sh" "false"
+fi
+
 if [[ "${TDARR_MODE:-native}" == "native" ]]; then
     echo -e "  ${YELLOW}..${NC}  Ensuring native Tdarr launchd services"
     if bash "$SCRIPT_DIR/setup-tdarr-native.sh" --media-dir "$MEDIA_DIR" --install-only --skip-flow >/dev/null 2>&1; then

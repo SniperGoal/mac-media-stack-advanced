@@ -66,7 +66,8 @@ echo ""
 
 # Create folder structure
 echo "Creating folders..."
-mkdir -p "$MEDIA_DIR"/{config,Downloads,Movies,"TV Shows",logs,state,backups,tdarr-transcode-cache}
+mkdir -p "$MEDIA_DIR"/{config,Downloads,Movies,"TV Shows",logs,state,backups,tdarr-transcode-cache,cloud,merged}
+mkdir -p "$MEDIA_DIR"/config/rclone
 mkdir -p "$MEDIA_DIR"/config/{qbittorrent,prowlarr,sonarr,radarr,bazarr,seerr,kometa,recyclarr}
 mkdir -p "$MEDIA_DIR"/config/tdarr/{server,configs,logs}
 mkdir -p "$MEDIA_DIR"/config/tdarr-native/{releases}
@@ -106,6 +107,17 @@ if [[ -f "$SCRIPT_DIR/.env" ]]; then
     fi
     if ! grep -q "^TDARR_VERSION=" "$SCRIPT_DIR/.env" 2>/dev/null; then
         printf 'TDARR_VERSION=\n' >> "$SCRIPT_DIR/.env"
+    fi
+    if ! grep -q "CLOUD_STORAGE_ENABLED" "$SCRIPT_DIR/.env" 2>/dev/null; then
+        printf '\n# --- CLOUD STORAGE (rclone + mergerfs) ---\n' >> "$SCRIPT_DIR/.env"
+        printf '# CLOUD_STORAGE_ENABLED=true\n' >> "$SCRIPT_DIR/.env"
+        printf '# RCLONE_REMOTE=myremote\n' >> "$SCRIPT_DIR/.env"
+        printf '# RCLONE_REMOTE_PATH=\n' >> "$SCRIPT_DIR/.env"
+        printf '# RCLONE_VFS_CACHE_MODE=full\n' >> "$SCRIPT_DIR/.env"
+        printf '# RCLONE_VFS_CACHE_MAX_SIZE=50G\n' >> "$SCRIPT_DIR/.env"
+        printf '# RCLONE_VFS_CACHE_MAX_AGE=72h\n' >> "$SCRIPT_DIR/.env"
+        printf '# RCLONE_VFS_READ_CHUNK_SIZE=128M\n' >> "$SCRIPT_DIR/.env"
+        printf '# CLOUD_UPLOAD_MIN_AGE_HOURS=24\n' >> "$SCRIPT_DIR/.env"
     fi
 else
     echo "Creating .env file..."

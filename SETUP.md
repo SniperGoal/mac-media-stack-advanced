@@ -268,6 +268,7 @@ Replace `YOUR_PLEX_TOKEN` and `YOUR_TMDB_API_KEY`, then save.
      - Movies source: `/movies`
      - TV source: `/tv`
      - Temp/cache: `/temp`
+   - If `CLOUD_STORAGE_ENABLED=true`, use `TDARR_MODE=docker` so Tdarr can read merged cloud paths.
 3. Assign the preloaded flow: `Quality-First HEVC (Resolution Preserving)`
 4. Keep the defaults in that flow for quality-first behavior:
    - No resolution downscale
@@ -331,6 +332,65 @@ bash scripts/vpn-mode.sh status
 | Transcode status | http://localhost:8265 |
 
 Everything else is fully automated.
+
+---
+
+## Optional: Cloud Storage (rclone + mergerfs)
+
+If your local disk is too small for your full library, cloud storage lets you extend it transparently. rclone mounts your cloud provider (Google Drive, S3, B2, Dropbox, etc.) inside Docker, and mergerfs overlays it with your local storage so all services see one unified library.
+
+### Compatibility (macOS)
+
+- Cloud-backed playback requires `MEDIA_SERVER=jellyfin`.
+- If using Tdarr with cloud storage, use `TDARR_MODE=docker`.
+- Native macOS apps (Plex app, native Tdarr) cannot directly read Docker FUSE merged mounts.
+
+### Setup
+
+```bash
+bash scripts/setup-cloud-storage.sh
+```
+
+The setup wizard will:
+1. Create the required directories
+2. Help you configure an rclone remote (interactive Docker wizard, copy existing conf, or skip)
+3. Write `CLOUD_STORAGE_ENABLED=true` and `RCLONE_REMOTE` to your `.env`
+4. Create `Movies` and `TV Shows` folders on your remote
+
+### Start with cloud storage
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile jellyfin --profile tdarr-docker up -d
+```
+
+Or pass `--cloud-storage` to `bootstrap.sh` for a full install.
+
+### How it works
+
+- **Write path:** Downloads land on local disk (fast). Every 6 hours, `cloud-upload.sh` moves files older than 24h to the cloud via `rclone move`.
+- **Read path:** Docker services (Jellyfin, Arr apps, Tdarr Docker) read from the mergerfs overlay, which transparently serves files from local or cloud storage.
+- **VFS cache:** rclone caches recently accessed cloud files locally (default 50GB, 72h max age). Adjust `RCLONE_VFS_CACHE_MAX_SIZE` in `.env` based on your available disk space.
+
+### Library paths when cloud storage is enabled
+
+- **Jellyfin (Docker):** keep default container paths `/data/movies` and `/data/tvshows` (mapped to merged paths by compose override).
+- **Tdarr Docker mode:** keep `/movies` and `/tv` (mapped to merged paths by compose override).
+
+### Troubleshooting cloud storage
+
+```bash
+# Check rclone and mergerfs health
+bash scripts/health-check.sh
+
+# View cloud upload logs
+tail -50 ~/Media/logs/cloud-upload.log
+
+# Test rclone connectivity
+docker exec rclone-mount rclone ls myremote: --max-depth 1
+
+# Restart cloud storage (order matters: rclone first, then mergerfs)
+docker restart rclone-mount && sleep 15 && docker restart mergerfs
+```
 
 ---
 

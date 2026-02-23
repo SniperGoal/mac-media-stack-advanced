@@ -1,0 +1,42 @@
+# rclone configuration examples
+# Full docs: https://rclone.org/docs/
+#
+# Copy this file to ${MEDIA_DIR}/config/rclone/rclone.conf and edit.
+# Or run: docker run --rm -it -v ${MEDIA_DIR}/config/rclone:/config/rclone rclone/rclone config
+
+# ── Google Drive ─────────────────────────────────────────────────────
+# https://rclone.org/drive/
+# [gdrive]
+# type = drive
+# client_id =
+# client_secret =
+# scope = drive
+# token = {"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}
+# team_drive =
+
+# ── Backblaze B2 ─────────────────────────────────────────────────────
+# https://rclone.org/b2/
+# [b2]
+# type = b2
+# account = YOUR_ACCOUNT_ID
+# key = YOUR_APPLICATION_KEY
+
+# ── Amazon S3 ────────────────────────────────────────────────────────
+# https://rclone.org/s3/
+# [s3]
+# type = s3
+# provider = AWS
+# access_key_id = YOUR_ACCESS_KEY
+# secret_access_key = YOUR_SECRET_KEY
+# region = us-east-1
+
+# ── Dropbox ──────────────────────────────────────────────────────────
+# https://rclone.org/dropbox/
+# [dropbox]
+# type = dropbox
+# token = {"access_token":"...","token_type":"bearer","refresh_token":"...","expiry":"..."}
+
+# ── Local path (useful for testing) ──────────────────────────────────
+# [local-test]
+# type = local
+# nounc = true

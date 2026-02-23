@@ -16,6 +16,7 @@ INSTALL_DIR="$HOME/mac-media-stack-advanced"
 NON_INTERACTIVE=false
 MEDIA_SERVER=plex
 TDARR_MODE=native
+CLOUD_STORAGE=false
 
 usage() {
     cat <<EOF
@@ -27,6 +28,7 @@ Options:
   --jellyfin            Use Jellyfin instead of Plex as the media server
   --tdarr-mode MODE     Tdarr mode: native (default) or docker
   --tdarr-docker        Shortcut for --tdarr-mode docker
+  --cloud-storage       Enable cloud storage (rclone + mergerfs)
   --non-interactive     Skip interactive prompts (manual Seerr wiring required)
   --help                Show this help message
 
@@ -34,6 +36,7 @@ Examples:
   bash bootstrap.sh
   bash bootstrap.sh --media-dir /Volumes/T9/Media
   bash bootstrap.sh --tdarr-docker
+  bash bootstrap.sh --jellyfin --cloud-storage --tdarr-docker
   bash bootstrap.sh --media-dir /Volumes/T9/Media --non-interactive
 EOF
 }
@@ -70,6 +73,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --tdarr-docker)
             TDARR_MODE="docker"
+            shift
+            ;;
+        --cloud-storage)
+            CLOUD_STORAGE=true
             shift
             ;;
         --non-interactive)
@@ -163,6 +170,48 @@ else
         return 1
     }
 fi
+
+resolve_compose_container() {
+    local service="$1"
+    local container_name
+
+    if docker inspect "$service" >/dev/null 2>&1; then
+        echo "$service"
+        return 0
+    fi
+
+    container_name=$(docker ps -a --filter "label=com.docker.compose.service=$service" --format '{{.Names}}' | head -1)
+    if [[ -n "$container_name" ]]; then
+        echo "$container_name"
+        return 0
+    fi
+
+    return 1
+}
+
+wait_for_healthy_container() {
+    local service="$1"
+    local max_attempts="${2:-30}"
+    local attempt=0
+    local container_name
+    local health
+
+    while [[ $attempt -lt $max_attempts ]]; do
+        container_name="$(resolve_compose_container "$service" || true)"
+        if [[ -n "$container_name" ]]; then
+            health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$container_name" 2>/dev/null || true)
+            if [[ "$health" == "healthy" ]]; then
+                echo -e "  ${GREEN}OK${NC}  $service is healthy"
+                return 0
+            fi
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+
+    echo -e "  ${YELLOW}WARN${NC}  $service is not healthy yet (continuing anyway)"
+    return 1
+}
 
 INSTALLED_RUNTIME=$(detect_installed_runtime)
 
@@ -281,6 +330,17 @@ if grep -q "your_wireguard_private_key_here" .env 2>/dev/null; then
     fi
 fi
 
+# Cloud storage setup
+if [[ "$CLOUD_STORAGE" == true ]]; then
+    echo ""
+    echo -e "${CYAN}Setting up cloud storage...${NC}"
+    if [[ "$NON_INTERACTIVE" == true ]]; then
+        bash scripts/setup-cloud-storage.sh --media-dir "$MEDIA_DIR" --non-interactive
+    else
+        bash scripts/setup-cloud-storage.sh --media-dir "$MEDIA_DIR"
+    fi
+fi
+
 echo ""
 
 # Preflight
@@ -296,18 +356,58 @@ echo ""
 # Start stack
 echo -e "${CYAN}Starting media stack (first run downloads ~3-5 GB)...${NC}"
 echo ""
-COMPOSE_UP_CMD="docker compose up -d"
+COMPOSE_FILES=("-f" "docker-compose.yml")
 COMPOSE_PROFILES=()
+
+# Detect cloud storage from .env (may have been set by setup-cloud-storage.sh or flag)
+CLOUD_ENABLED_ENV=""
+if [[ -f .env ]]; then
+    CLOUD_ENABLED_ENV=$(sed -n 's/^CLOUD_STORAGE_ENABLED=//p' .env | head -1)
+fi
+CLOUD_ACTIVE=false
+if [[ "$CLOUD_STORAGE" == true || "$CLOUD_ENABLED_ENV" == "true" ]]; then
+    CLOUD_ACTIVE=true
+fi
+
+if [[ "$CLOUD_ACTIVE" == true && "$MEDIA_SERVER" == "plex" ]]; then
+    echo -e "${RED}Cloud storage requires Jellyfin in this stack.${NC}"
+    echo ""
+    echo "Reason:"
+    echo "  Plex runs natively on macOS, but rclone/mergerfs mounts exist inside the Docker VM."
+    echo "  Native Plex cannot read those merged cloud mount paths on macOS."
+    echo ""
+    echo "Use one of these options:"
+    echo "  1. Re-run with Jellyfin: bash bootstrap.sh --jellyfin --cloud-storage"
+    echo "  2. Disable cloud storage and keep Plex: set CLOUD_STORAGE_ENABLED=false in .env"
+    exit 1
+fi
+
+if [[ "$CLOUD_ACTIVE" == true && "$TDARR_MODE" == "native" ]]; then
+    echo -e "${YELLOW}WARN${NC}  Cloud storage + native Tdarr is not supported on macOS."
+    echo "  Switching TDARR_MODE to docker so Tdarr can read merged cloud paths."
+    TDARR_MODE="docker"
+    if [[ -f .env ]]; then
+        if grep -q '^TDARR_MODE=' .env; then
+            sed -i '' "s|^TDARR_MODE=.*|TDARR_MODE=docker|" .env
+        else
+            printf '\nTDARR_MODE=docker\n' >> .env
+        fi
+    fi
+fi
+
+if [[ "$CLOUD_ACTIVE" == true ]]; then
+    COMPOSE_FILES+=("-f" "docker-compose.cloud-storage.yml")
+    COMPOSE_PROFILES+=(--profile cloud-storage)
+fi
+
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     COMPOSE_PROFILES+=(--profile jellyfin)
 fi
 if [[ "$TDARR_MODE" == "docker" ]]; then
     COMPOSE_PROFILES+=(--profile tdarr-docker)
 fi
-if [[ ${#COMPOSE_PROFILES[@]} -gt 0 ]]; then
-    COMPOSE_UP_CMD="docker compose ${COMPOSE_PROFILES[*]} up -d"
-fi
-if ! $COMPOSE_UP_CMD; then
+
+if ! docker compose "${COMPOSE_FILES[@]}" "${COMPOSE_PROFILES[@]}" up -d; then
     echo ""
     echo -e "${RED}Failed to start the stack.${NC} Check the error output above."
     echo "Common issues:"
@@ -326,6 +426,13 @@ wait_for_service "Sonarr" "http://localhost:8989" || true
 wait_for_service "Seerr" "http://localhost:5055" || true
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     wait_for_service "Jellyfin" "http://localhost:8096/health" || true
+fi
+
+if [[ "$CLOUD_ACTIVE" == true ]]; then
+    echo ""
+    echo "Waiting for cloud storage..."
+    wait_for_healthy_container "rclone-mount" || true
+    wait_for_healthy_container "mergerfs" || true
 fi
 
 if [[ "$TDARR_MODE" == "native" ]]; then
@@ -378,22 +485,39 @@ else
     TDARR_TV_PATH="$MEDIA_DIR/TV Shows"
 fi
 
+PLEX_MOVIES_PATH="$MEDIA_DIR/Movies"
+PLEX_TV_PATH="$MEDIA_DIR/TV Shows"
+
 echo "  Remaining manual steps:"
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     echo "    1. Complete Jellyfin setup wizard at http://localhost:8096"
-    echo "       Add libraries: Movies = /data/movies, TV Shows = /data/tvshows"
+    if [[ "$CLOUD_ACTIVE" == true ]]; then
+        echo "       Add libraries: Movies = /data/movies, TV Shows = /data/tvshows (merged cloud/local)"
+    else
+        echo "       Add libraries: Movies = /data/movies, TV Shows = /data/tvshows"
+    fi
     echo "    2. In Tdarr, add libraries ($TDARR_MOVIES_PATH and $TDARR_TV_PATH) and assign the preloaded"
     echo "       'Quality-First HEVC (Resolution Preserving)' flow"
 else
-    echo "    1. Set up Plex libraries (Movies: $MEDIA_DIR/Movies, TV: $MEDIA_DIR/TV Shows)"
+    echo "    1. Set up Plex libraries (Movies: $PLEX_MOVIES_PATH, TV: $PLEX_TV_PATH)"
     echo "    2. Edit $MEDIA_DIR/config/kometa/config.yml with Plex token + TMDB key"
     echo "    3. In Tdarr, add libraries ($TDARR_MOVIES_PATH and $TDARR_TV_PATH) and assign the preloaded"
     echo "       'Quality-First HEVC (Resolution Preserving)' flow"
 fi
 echo ""
+if [[ "$CLOUD_ACTIVE" == true ]]; then
+    echo "  Cloud storage: enabled (rclone + mergerfs)"
+    echo "  Uploads run every 6 hours via launchd"
+    echo ""
+fi
+
 echo "  Optional - Music (Lidarr + Tidarr):"
 echo "    bash scripts/setup-music.sh"
-echo "    docker compose --profile music up -d"
+if [[ "$CLOUD_ACTIVE" == true ]]; then
+    echo "    docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile music up -d"
+else
+    echo "    docker compose --profile music up -d"
+fi
 echo "    Then open http://localhost:8484 to authenticate with Tidal"
 echo ""
 echo "  API keys were printed and Recyclarr/Unpackerr were auto-wired by configure.sh."

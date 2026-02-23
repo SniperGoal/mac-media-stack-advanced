@@ -21,6 +21,7 @@
   <img src="https://img.shields.io/badge/Tidarr-1DB954?style=flat-square&logoColor=white" />
   <img src="https://img.shields.io/badge/Recyclarr-FF6B35?style=flat-square&logoColor=white" />
   <img src="https://img.shields.io/badge/Kometa-FF4081?style=flat-square&logoColor=white" />
+  <img src="https://img.shields.io/badge/rclone-2596be?style=flat-square&logo=rclone&logoColor=white" />
   <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" />
   <br><br>
   <img src="https://img.shields.io/github/stars/liamvibecodes/mac-media-stack-advanced?style=flat-square&color=yellow" />
@@ -55,6 +56,7 @@ New to self-hosted media? Start with the [basic version](https://github.com/liam
 | **Intro Skipper** | Jellyfin plugin: auto-detects intros and adds a "Skip Intro" button on TV shows |
 | **TMDb Box Sets** | Jellyfin plugin: auto-creates franchise collections from TMDb data (Jellyfin's Kometa) |
 | **Jellystat** | Jellyfin analytics dashboard (like Tautulli for Plex: watch history, user stats, library insights) |
+| **Cloud Storage** | rclone + mergerfs: transparent cloud/local merged library (Google Drive, S3, B2, Dropbox) |
 
 ## Choosing Your Media Server
 
@@ -94,6 +96,62 @@ After the stack is running:
 
 Jellystat will start tracking watch history, user activity, and library statistics automatically.
 
+## Optional: Cloud Storage (rclone + mergerfs)
+
+Transparent cloud/local merged library. rclone FUSE-mounts your cloud storage inside Docker (where FUSE works natively), mergerfs overlays it with local storage, and all existing services see a single unified path. Local-first writes keep downloads fast; a periodic upload script moves stable media to the cloud.
+
+Supports Google Drive, S3, Backblaze B2, Dropbox, and [40+ other providers](https://rclone.org/overview/).
+
+### Compatibility Requirements (macOS)
+
+- Set `MEDIA_SERVER=jellyfin` for cloud-backed playback.
+- Set `TDARR_MODE=docker` if you use Tdarr with cloud storage.
+- Native macOS apps (like Plex app and native Tdarr) cannot read Docker FUSE merged mounts directly.
+
+### Quick Start
+
+```bash
+bash scripts/setup-cloud-storage.sh
+docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile jellyfin --profile tdarr-docker up -d
+```
+
+If you also use optional profiles, append them to the same command (example: `--profile jellyfin`, `--profile music`, `--profile tdarr-docker`).
+
+Or include it in bootstrap:
+
+```bash
+bash bootstrap.sh --cloud-storage
+```
+
+### How It Works
+
+```
+rclone-mount  -->  FUSE mounts cloud provider to /cloud
+mergerfs      -->  overlays /local + /cloud into /merged
+Radarr/Sonarr -->  read/write /merged (local-first writes)
+cloud-upload  -->  every 6h, moves files >24h old to cloud
+```
+
+### Library paths when cloud storage is enabled
+
+- **Jellyfin (Docker):** keep `/data/movies` and `/data/tvshows` (override maps those to merged paths).
+- **Tdarr Docker mode:** keep `/movies` and `/tv` (override maps those to merged paths).
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CLOUD_STORAGE_ENABLED` | `false` | Set to `true` to enable |
+| `RCLONE_REMOTE` | (required) | Remote name from rclone.conf |
+| `RCLONE_REMOTE_PATH` | (empty) | Subfolder on remote |
+| `RCLONE_VFS_CACHE_MODE` | `full` | VFS cache mode (full recommended) |
+| `RCLONE_VFS_CACHE_MAX_SIZE` | `50G` | Max local cache size |
+| `RCLONE_VFS_CACHE_MAX_AGE` | `72h` | Max cache age |
+| `RCLONE_VFS_READ_CHUNK_SIZE` | `128M` | Read chunk size |
+| `CLOUD_UPLOAD_MIN_AGE_HOURS` | `24` | Only upload files older than this |
+
+**Cloud mode note:** Use `TDARR_MODE=docker` when cloud storage is enabled. Native Tdarr cannot access merged Docker FUSE mounts on macOS.
+
 ## Optional: Music (Lidarr + Tidarr)
 
 | Service | What It Does |
@@ -106,6 +164,12 @@ Music services use Docker Compose profiles and are not started by default. To en
 ```bash
 bash scripts/setup-music.sh
 docker compose --profile music up -d
+```
+
+If cloud storage is enabled, use:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile music up -d
 ```
 
 Then open Tidarr at `http://localhost:8484` to authenticate with your Tidal account, and Lidarr at `http://localhost:8686` to configure your music library. See the [Music Setup](#music-setup) section below for details.
@@ -121,6 +185,7 @@ Then open Tidarr at `http://localhost:8484` to authenticate with your Tidal acco
 | Log prune | Daily | Removes log files older than 30 days |
 | Franchise sort | Optional/manual | Sorts franchise collection movies by release date in Plex (Plex only) |
 | VPN failover | Every 2 min (optional) | Auto-switches between ProtonVPN and NordVPN on sustained failure |
+| Cloud upload | Every 6 hours (optional) | Moves local media older than 24h to cloud storage |
 | Watchtower | Daily at 04:00 (optional) | Auto-pulls latest container images and recreates updated services |
 
 Franchise sorting is kept manual by default because it requires your Plex token:
@@ -290,6 +355,8 @@ bash scripts/vpn-mode.sh nord
 | `scripts/vpn-mode.sh` | Manual VPN provider switcher |
 | `scripts/vpn-failover-watch.sh` | Automatic VPN failover daemon |
 | `scripts/run-kometa.sh` | Trigger Kometa metadata run |
+| `scripts/setup-cloud-storage.sh` | Sets up rclone + mergerfs cloud storage integration |
+| `scripts/cloud-upload.sh` | Periodic upload of local media to cloud storage |
 | `scripts/setup-music.sh` | Creates music directories and Tidarr config (optional) |
 | `scripts/log-prune.sh` | Prunes old log files (30-day default retention) |
 | `scripts/franchise-sort.py` | Auto-sorts franchise collections in Plex by release date (Plex only) |
@@ -340,6 +407,12 @@ docker compose --profile music up -d
 #        Host: gluetun, Port: 8080
 ```
 
+If cloud storage is enabled, use this start command in step 2 instead:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile music up -d
+```
+
 ### Tidarr Download Config
 
 The setup script creates a default `tiddl` config at `<MEDIA_DIR>/config/tidarr/.tiddl/config.toml` (default `<MEDIA_DIR>` is `~/Media`). Key settings:
@@ -386,6 +459,12 @@ docker compose --profile music stop lidarr tidarr
 # Include music in all future docker compose commands
 # Add to your shell profile:
 export COMPOSE_PROFILES=music
+```
+
+If cloud storage is enabled, include both compose files and profiles when starting music services:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile music up -d
 ```
 
 ## Media Archiving

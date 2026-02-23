@@ -166,6 +166,76 @@ if [[ -f "$SCRIPT_DIR/docker-compose.yml" ]] && [[ -f "$ENV_FILE" ]]; then
     fi
 fi
 
+# Cloud storage checks
+CLOUD_STORAGE_ENABLED=""
+if [[ -f "$ENV_FILE" ]]; then
+    CLOUD_STORAGE_ENABLED=$(sed -n 's/^CLOUD_STORAGE_ENABLED=//p' "$ENV_FILE" | head -1)
+fi
+
+if [[ "$CLOUD_STORAGE_ENABLED" == "true" ]]; then
+    if [[ "$MEDIA_SERVER" != "jellyfin" ]]; then
+        fail "CLOUD_STORAGE_ENABLED=true requires MEDIA_SERVER=jellyfin (native Plex cannot read Docker FUSE mounts on macOS)"
+    else
+        ok "Cloud storage compatibility check passed for Jellyfin"
+    fi
+
+    if [[ "$TDARR_MODE" == "native" ]]; then
+        fail "CLOUD_STORAGE_ENABLED=true requires TDARR_MODE=docker (native Tdarr cannot read Docker FUSE mounts on macOS)"
+    else
+        ok "Cloud storage compatibility check passed for Tdarr mode ($TDARR_MODE)"
+    fi
+
+    rclone_conf="$MEDIA_DIR/config/rclone/rclone.conf"
+    if [[ -f "$rclone_conf" ]]; then
+        ok "rclone.conf exists"
+    else
+        fail "rclone.conf missing at $rclone_conf"
+    fi
+
+    env_remote=$(sed -n 's/^RCLONE_REMOTE=//p' "$ENV_FILE" | head -1)
+    if [[ -n "$env_remote" ]]; then
+        if [[ -f "$rclone_conf" ]] && grep -q "^\[$env_remote\]" "$rclone_conf" 2>/dev/null; then
+            ok "RCLONE_REMOTE '$env_remote' found in rclone.conf"
+        elif [[ -f "$rclone_conf" ]]; then
+            fail "RCLONE_REMOTE '$env_remote' not found in rclone.conf"
+        fi
+    else
+        fail "RCLONE_REMOTE not set in .env"
+    fi
+
+    for cdir in "$MEDIA_DIR/cloud" "$MEDIA_DIR/merged" "$MEDIA_DIR/config/rclone"; do
+        if [[ -d "$cdir" ]]; then
+            ok "Directory exists: $cdir"
+        else
+            warn "Directory missing: $cdir"
+        fi
+    done
+
+    if [[ -f "$SCRIPT_DIR/docker-compose.cloud-storage.yml" ]]; then
+        ok "docker-compose.cloud-storage.yml exists"
+    else
+        fail "docker-compose.cloud-storage.yml missing"
+    fi
+
+    if docker compose -f "$SCRIPT_DIR/docker-compose.yml" -f "$SCRIPT_DIR/docker-compose.cloud-storage.yml" --profile cloud-storage config >/dev/null 2>&1; then
+        ok "Cloud storage compose renders with current .env"
+    else
+        fail "Cloud storage compose failed to render (check .env values)"
+    fi
+
+    if docker compose -f "$SCRIPT_DIR/docker-compose.yml" -f "$SCRIPT_DIR/docker-compose.cloud-storage.yml" --profile cloud-storage --profile jellyfin config >/dev/null 2>&1; then
+        ok "Cloud storage compose renders with jellyfin profile"
+    else
+        fail "Cloud storage compose failed to render jellyfin profile"
+    fi
+
+    if docker compose -f "$SCRIPT_DIR/docker-compose.yml" -f "$SCRIPT_DIR/docker-compose.cloud-storage.yml" --profile cloud-storage --profile tdarr-docker config >/dev/null 2>&1; then
+        ok "Cloud storage compose renders with tdarr-docker profile"
+    else
+        fail "Cloud storage compose failed to render tdarr-docker profile"
+    fi
+fi
+
 PORTS="5055 9696 8989 7878 8080 6767 8191 8265 8266"
 if [[ "$MEDIA_SERVER" == "jellyfin" ]]; then
     PORTS="$PORTS 8096"

@@ -1,0 +1,146 @@
+# Cloud Storage override (rclone + mergerfs)
+# Loaded via: docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage up -d
+# Requires CLOUD_STORAGE_ENABLED=true and RCLONE_REMOTE set in .env
+
+services:
+  # ── rclone FUSE mount ──────────────────────────────────────────────
+  rclone-mount:
+    image: rclone/rclone@sha256:c08f5e100e1c4fa4deb1315b56a47c0cc0e765222b7c0834bc93305f2e4d85c0
+    container_name: rclone-mount
+    profiles: ["cloud-storage"]
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    environment:
+      - TZ=${TIMEZONE:-America/New_York}
+    command: >
+      mount ${RCLONE_REMOTE}:${RCLONE_REMOTE_PATH:-} /cloud
+      --allow-other
+      --allow-non-empty
+      --vfs-cache-mode ${RCLONE_VFS_CACHE_MODE:-full}
+      --vfs-cache-max-size ${RCLONE_VFS_CACHE_MAX_SIZE:-50G}
+      --vfs-cache-max-age ${RCLONE_VFS_CACHE_MAX_AGE:-72h}
+      --vfs-read-chunk-size ${RCLONE_VFS_READ_CHUNK_SIZE:-128M}
+      --dir-cache-time 5m
+      --poll-interval 15s
+      --log-level INFO
+    volumes:
+      - ${MEDIA_DIR}/config/rclone:/config/rclone
+      - ${MEDIA_DIR}/cloud:/cloud:shared
+    healthcheck:
+      test: ["CMD-SHELL", "grep -Eq ' /cloud fuse(\\.rclone)? ' /proc/mounts"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── mergerfs overlay ───────────────────────────────────────────────
+  mergerfs:
+    image: ghcr.io/hotio/mergerfs@sha256:a06eb0ac1982ce5a70bd4e21263edb9ab3aba1572e7341493bf04c42a2fc924d
+    container_name: mergerfs
+    profiles: ["cloud-storage"]
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    depends_on:
+      rclone-mount:
+        condition: service_healthy
+    environment:
+      - TZ=${TIMEZONE:-America/New_York}
+    # mergerfs: local first for writes (ff = first found), cloud for reads
+    command: >
+      -o allow_other,use_ino,category.create=ff,moveonenospc=true,dropcacheonclose=true
+      /local:/cloud
+      /merged
+    volumes:
+      - ${MEDIA_DIR}/Movies:/local/Movies
+      - ${MEDIA_DIR}/TV Shows:/local/TV Shows
+      - ${MEDIA_DIR}/Music:/local/Music
+      - ${MEDIA_DIR}/cloud:/cloud:rslave
+      - ${MEDIA_DIR}/merged:/merged:shared
+    healthcheck:
+      test: ["CMD-SHELL", "grep -Eq ' /merged fuse(\\.mergerfs)? ' /proc/mounts"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  # ── Service overrides: swap local media paths for merged ───────────
+
+  sonarr:
+    depends_on:
+      mergerfs:
+        condition: service_healthy
+    volumes:
+      - ${MEDIA_DIR}/config/sonarr:/config
+      - ${MEDIA_DIR}/merged/TV Shows:/tv:rslave
+      - ${MEDIA_DIR}/Downloads:/downloads
+
+  radarr:
+    depends_on:
+      mergerfs:
+        condition: service_healthy
+    volumes:
+      - ${MEDIA_DIR}/config/radarr:/config
+      - ${MEDIA_DIR}/merged/Movies:/movies:rslave
+      - ${MEDIA_DIR}/Downloads:/downloads
+
+  bazarr:
+    depends_on:
+      mergerfs:
+        condition: service_healthy
+    volumes:
+      - ${MEDIA_DIR}/config/bazarr:/config
+      - ${MEDIA_DIR}/merged/Movies:/movies:rslave
+      - ${MEDIA_DIR}/merged/TV Shows:/tv:rslave
+
+  qbittorrent:
+    depends_on:
+      gluetun:
+        condition: service_started
+      mergerfs:
+        condition: service_healthy
+    volumes:
+      - ${MEDIA_DIR}/config/qbittorrent:/config
+      - ${MEDIA_DIR}/Downloads:/downloads
+      - ${MEDIA_DIR}/merged/Movies:/movies:rslave
+      - ${MEDIA_DIR}/merged/TV Shows:/tv:rslave
+
+  tdarr:
+    depends_on:
+      mergerfs:
+        condition: service_healthy
+    volumes:
+      - ${MEDIA_DIR}/config/tdarr/server:/app/server
+      - ${MEDIA_DIR}/config/tdarr/configs:/app/configs
+      - ${MEDIA_DIR}/config/tdarr/logs:/app/logs
+      - ${MEDIA_DIR}/merged/Movies:/movies:rslave
+      - ${MEDIA_DIR}/merged/TV Shows:/tv:rslave
+      - ${MEDIA_DIR}/tdarr-transcode-cache:/temp
+
+  jellyfin:
+    depends_on:
+      mergerfs:
+        condition: service_healthy
+    volumes:
+      - ${MEDIA_DIR}/config/jellyfin:/config
+      - ${MEDIA_DIR}/merged/Movies:/data/movies:rslave
+      - ${MEDIA_DIR}/merged/TV Shows:/data/tvshows:rslave
+
+  lidarr:
+    depends_on:
+      mergerfs:
+        condition: service_healthy
+    volumes:
+      - ${MEDIA_DIR}/config/lidarr:/config
+      - ${MEDIA_DIR}/merged/Music:/music:rslave
+      - ${MEDIA_DIR}/Downloads:/downloads
+      - ${MEDIA_DIR}/Downloads/tidarr:/downloads/tidarr

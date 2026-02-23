@@ -22,6 +22,15 @@ fi
 PASS=0
 FAIL=0
 
+resolve_compose_container() {
+    local service="$1"
+    if docker inspect "$service" >/dev/null 2>&1; then
+        echo "$service"
+        return 0
+    fi
+    docker ps -a --filter "label=com.docker.compose.service=$service" --format '{{.Names}}' | head -1
+}
+
 check_service() {
     local name="$1" url="$2"
     status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$url" 2>/dev/null)
@@ -51,6 +60,17 @@ else
     exit 1
 fi
 echo ""
+
+if [[ "${CLOUD_STORAGE_ENABLED:-}" == "true" ]]; then
+    if [[ "$MEDIA_SERVER" != "jellyfin" ]]; then
+        echo -e "  ${RED}FAIL${NC}  Cloud storage requires MEDIA_SERVER=jellyfin on macOS"
+        ((FAIL++))
+    fi
+    if [[ "$TDARR_MODE" == "native" ]]; then
+        echo -e "  ${RED}FAIL${NC}  Cloud storage requires TDARR_MODE=docker on macOS"
+        ((FAIL++))
+    fi
+fi
 
 echo "Containers:"
 CONTAINER_LIST="gluetun qbittorrent prowlarr sonarr radarr bazarr flaresolverr seerr unpackerr recyclarr kometa tautulli lidarr tidarr"
@@ -163,6 +183,37 @@ fi
 if docker inspect -f '{{.State.Status}}' lidarr &>/dev/null; then
     check_service "Lidarr" "http://localhost:8686"
     check_service "Tidarr" "http://localhost:8484"
+fi
+
+# Cloud storage
+if [[ "${CLOUD_STORAGE_ENABLED:-}" == "true" ]]; then
+    echo ""
+    echo "Cloud Storage:"
+    rclone_container=$(resolve_compose_container "rclone-mount")
+    rclone_state=$(docker inspect -f '{{.State.Status}}' "$rclone_container" 2>/dev/null || true)
+    rclone_health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$rclone_container" 2>/dev/null || true)
+    if [[ "$rclone_state" == "running" && "$rclone_health" == "healthy" ]]; then
+        echo -e "  ${GREEN}OK${NC}  rclone-mount (healthy: ${rclone_container})"
+        ((PASS++))
+    elif [[ -z "$rclone_container" ]]; then
+        echo -e "  ${YELLOW}SKIP${NC}  rclone-mount (not found)"
+    else
+        echo -e "  ${RED}FAIL${NC}  rclone-mount (${rclone_state:-not found}, health: ${rclone_health:-unknown})"
+        ((FAIL++))
+    fi
+
+    mergerfs_container=$(resolve_compose_container "mergerfs")
+    mergerfs_state=$(docker inspect -f '{{.State.Status}}' "$mergerfs_container" 2>/dev/null || true)
+    mergerfs_health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$mergerfs_container" 2>/dev/null || true)
+    if [[ "$mergerfs_state" == "running" && "$mergerfs_health" == "healthy" ]]; then
+        echo -e "  ${GREEN}OK${NC}  mergerfs (healthy: ${mergerfs_container})"
+        ((PASS++))
+    elif [[ -z "$mergerfs_container" ]]; then
+        echo -e "  ${YELLOW}SKIP${NC}  mergerfs (not found)"
+    else
+        echo -e "  ${RED}FAIL${NC}  mergerfs (${mergerfs_state:-not found}, health: ${mergerfs_health:-unknown})"
+        ((FAIL++))
+    fi
 fi
 
 echo ""

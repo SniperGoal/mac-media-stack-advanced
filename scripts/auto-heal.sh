@@ -32,6 +32,15 @@ fi
 
 HEALED=0
 
+resolve_compose_container() {
+    local service="$1"
+    if docker inspect "$service" >/dev/null 2>&1; then
+        echo "$service"
+        return 0
+    fi
+    docker ps -a --filter "label=com.docker.compose.service=$service" --format '{{.Names}}' | head -1
+}
+
 # Check VPN
 vpn_ip=$(docker exec gluetun sh -lc 'cat /tmp/gluetun/ip 2>/dev/null || true' 2>/dev/null)
 vpn_iface=$(docker exec gluetun sh -lc 'ls /sys/class/net 2>/dev/null | grep -E "^(tun|wg)[0-9]+$" | head -1' 2>/dev/null)
@@ -154,6 +163,42 @@ if [[ "$TDARR_MODE" == "native" ]]; then
             launchctl kickstart -k "gui/$UID/$tdarr_node_label" >> "$LOG" 2>&1 || true
         fi
         ((HEALED++))
+    fi
+fi
+
+# Cloud storage containers
+if [[ "${CLOUD_STORAGE_ENABLED:-}" == "true" ]]; then
+    rclone_container=$(resolve_compose_container "rclone-mount")
+    rclone_state=$(docker inspect -f '{{.State.Status}}' "$rclone_container" 2>/dev/null || true)
+    rclone_health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$rclone_container" 2>/dev/null || true)
+
+    if [[ -z "$rclone_container" ]]; then
+        log "WARN: rclone-mount container not found"
+    elif [[ "$rclone_state" != "running" || "$rclone_health" == "unhealthy" ]]; then
+        log "WARN: rclone-mount is ${rclone_state:-missing} (health: ${rclone_health:-unknown}). Restarting..."
+        docker restart "$rclone_container" >> "$LOG" 2>&1
+        sleep 15
+        ((HEALED++))
+    else
+        log "OK: rclone-mount healthy"
+    fi
+
+    mergerfs_container=$(resolve_compose_container "mergerfs")
+    mergerfs_state=$(docker inspect -f '{{.State.Status}}' "$mergerfs_container" 2>/dev/null || true)
+    mergerfs_health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$mergerfs_container" 2>/dev/null || true)
+
+    if [[ -z "$mergerfs_container" ]]; then
+        log "WARN: mergerfs container not found"
+    elif [[ "$mergerfs_state" != "running" || "$mergerfs_health" == "unhealthy" ]]; then
+        log "WARN: mergerfs is ${mergerfs_state:-missing} (health: ${mergerfs_health:-unknown}). Restarting rclone first, then mergerfs..."
+        # Restart rclone first since mergerfs depends on it
+        [[ -n "$rclone_container" ]] && docker restart "$rclone_container" >> "$LOG" 2>&1
+        sleep 15
+        docker restart "$mergerfs_container" >> "$LOG" 2>&1
+        sleep 10
+        ((HEALED++))
+    else
+        log "OK: mergerfs healthy"
     fi
 fi
 
